@@ -5,7 +5,7 @@
 Comprehensive, automated security hardening script for running [OpenClaw](https://github.com/openclaw/openclaw) on Raspberry Pi in a secure, isolated environment. Perfect for personal AI infrastructure, development workstations, or shareable community images.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.2-blue.svg)]()
+[![Version](https://img.shields.io/badge/version-2.3-blue.svg)]()
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-4%2F5-red.svg)]()
 
 ---
@@ -20,7 +20,7 @@ Comprehensive, automated security hardening script for running [OpenClaw](https:
 - ✅ **Auditing**: auditd system monitoring, Lynis security audits
 - ✅ **Automation**: Daily security scans, automated reporting
 
-**Enhanced User Experience (v2.2)**
+**Enhanced User Experience (v2.3)**
 - ✅ **Progress Indicators**: Real-time feedback for long-running operations
 - ✅ **Skip Options**: Run time-consuming tasks later if needed
 - ✅ **Version Tracking**: Detects previous installations, preserves custom configs
@@ -294,6 +294,46 @@ ssh openclaw@rpi-openclaw
 ssh openclaw@100.x.y.z  # Tailscale IP
 ```
 
+**OpenClaw Gateway Integration:**
+
+OpenClaw has native Tailscale Gateway support with three modes:
+- **serve** — Tailnet-only access with identity-based authentication (no passwords)
+- **funnel** — Public internet access via Tailscale Funnel (shared password required)
+- **off** — No Tailscale Gateway automation (default)
+
+During installation, the script will offer to configure your preferred Gateway mode. For manual setup or more details, see the [OpenClaw Tailscale documentation](https://docs.openclaw.ai/gateway/tailscale).
+
+**Prerequisites for serve/funnel modes:**
+- MagicDNS enabled in your [Tailscale admin console](https://login.tailscale.com/admin/dns)
+- HTTPS certificates enabled in DNS settings
+- For funnel: Tailscale v1.38.3+ and funnel node attributes enabled
+
+### **Developer Tools & API Proxy**
+
+OpenClaw works alongside modern AI-powered coding tools. Consider installing these on your Pi or a connected machine:
+
+| Tool | Description |
+|------|-------------|
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Anthropic's CLI coding assistant |
+| [OpenAI Codex CLI](https://github.com/openai/codex) | OpenAI's terminal coding agent |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | Google's AI coding tool |
+
+**Sharing API Access with CLIProxyAPI:**
+
+If you use OAuth-based coding plans (e.g., Claude Pro/Max, ChatGPT Plus/Pro) and want to share that API access with your OpenClaw instance without managing raw API keys, consider [CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI):
+
+- **Multi-account load balancing** — Pool multiple OAuth sessions behind one endpoint
+- **No direct API key management** — Uses your existing OAuth-based subscriptions
+- **Unified API interface** — Compatible with OpenAI-format API calls
+- **Controlled access** — Proxy manages rate limits and session rotation
+
+```bash
+# See full setup instructions at:
+# https://github.com/router-for-me/CLIProxyAPI
+```
+
+> **Note:** CLIProxyAPI is a third-party community tool. Review its documentation and security implications before deploying in your environment.
+
 ---
 
 ## 🔧 Common Tasks
@@ -544,7 +584,10 @@ User Device
 
 ## 🗺️ Roadmap
 
-### **Version 2.3 (Planned)**
+### **Version 2.3 (Current)**
+- [x] **User session environment**: DBUS/XDG_RUNTIME_DIR setup for OpenClaw Gateway service
+- [x] **OpenClaw Gateway Tailscale integration**: Native serve/funnel/off mode configuration
+- [x] **Developer tools guidance**: CLIProxyAPI and AI coding tool recommendations
 - [ ] **Multi-distro support**: Detect and adapt to Ubuntu, Debian, etc.
 - [ ] **Docker deployment option**: Container-based installation
 - [ ] **Backup/restore automation**: Easy system snapshots
@@ -659,7 +702,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 | Metric | Value |
 |--------|-------|
-| Script Version | 2.2 |
+| Script Version | 2.3 |
 | Lines of Code | ~1870 |
 | Security Components | 10+ |
 | Supported Pi Models | 4, 5, CM4 |

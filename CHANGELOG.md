@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.3.0] - 2025-02-07
+
+### Added
+- User session environment setup (`XDG_RUNTIME_DIR`, `DBUS_SESSION_BUS_ADDRESS`) for OpenClaw Gateway
+- Persistent user systemd instance via `loginctl enable-linger`
+- OpenClaw Gateway Tailscale integration with serve/funnel/off mode selection
+- UFW outbound rule for Tailscale interface (`allow out on tailscale0`)
+- Interactive Gateway mode configuration with automatic `openclaw.json` setup
+- Developer Tools & API Proxy section in README (CLIProxyAPI, Claude Code, Codex, Gemini CLI)
+- Post-install hint in OpenClaw installer pointing to developer tool docs
+
+### Changed
+- Tailscale installation function restructured: no longer early-returns when already installed
+- Tailscale section now includes full Gateway integration workflow
+- README Tailscale section updated with Gateway mode documentation
+- README roadmap updated to reflect v2.3 features
+
+### Fixed
+- OpenClaw Gateway `systemctl --user` failures due to missing DBUS/XDG environment variables
+- Missing UFW outbound rule for Tailscale interface (only inbound was configured)
+
 ## [2.2.0] - 2025-02-06
 
 ### Added

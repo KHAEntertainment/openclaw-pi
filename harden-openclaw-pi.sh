@@ -3,14 +3,13 @@
 ###############################################################################
 # OpenClaw Raspberry Pi - Complete Security Hardening Script
 #
-# Version: 2.2
-# Changes from 2.1:
-#  - Version detection and tracking
-#  - Preserve custom fail2ban configurations
-#  - Detect modified scripts before overwriting
-#  - Tailscale installation and configuration
-#  - OpenClaw installer integration
-#  - Enhanced finalization workflow
+# Version: 2.3
+# Changes from 2.2:
+#  - User session environment (DBUS/XDG_RUNTIME_DIR) for Gateway
+#  - OpenClaw Gateway Tailscale integration (serve/funnel/off)
+#  - Developer tools and API proxy guidance
+#  - UFW outbound rule for Tailscale interface
+#  - Fixed Gateway systemctl --user failures
 #
 # This script performs comprehensive security hardening for Raspberry Pi
 # systems running OpenClaw. It can be run on fresh installations or existing
@@ -22,13 +21,13 @@
 #
 # Author: Community Contribution
 # License: MIT
-# Version: 2.2
+# Version: 2.3
 ###############################################################################
 
 set -e  # Exit on error
 
 # Script configuration
-SCRIPT_VERSION="2.2"
+SCRIPT_VERSION="2.3"
 VERSION_FILE="/etc/openclaw-hardening-version"
 OPENCLAW_USER="openclaw"
 LOGFILE="/var/log/openclaw-hardening-$(date +%Y%m%d-%H%M%S).log"
@@ -59,7 +58,7 @@ for arg in "$@"; do
             ;;
         --help|-h)
             cat << 'HELPEOF'
-OpenClaw Raspberry Pi Security Hardening Script v2.2
+OpenClaw Raspberry Pi Security Hardening Script v2.3
 
 Usage: sudo ./harden-openclaw-pi.sh [OPTIONS]
 
@@ -511,6 +510,23 @@ configure_users() {
     chmod 700 "/home/${OPENCLAW_USER:?}"
     print_success "Home directory permissions set to 700"
 
+    # Enable persistent user session for OpenClaw Gateway
+    # Without this, systemctl --user fails (missing DBUS_SESSION_BUS_ADDRESS / XDG_RUNTIME_DIR)
+    print_info "Setting up user session environment for OpenClaw..."
+    loginctl enable-linger "$OPENCLAW_USER" || {
+        print_warning "Could not enable lingering - may need manual setup"
+    }
+    su - "$OPENCLAW_USER" << 'ENVVARS'
+if ! grep -q "XDG_RUNTIME_DIR" ~/.bashrc 2>/dev/null; then
+    cat >> ~/.bashrc << 'EOF'
+# User session environment for OpenClaw Gateway
+export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+EOF
+fi
+ENVVARS
+    print_success "User session environment configured"
+
     # Optionally create admin user
     if ! user_exists "rpi-admin"; then
         if confirm "Create 'rpi-admin' user with sudo access?"; then
@@ -553,7 +569,7 @@ configure_ssh() {
     print_info "Writing SSH hardening configuration..."
 
     cat > "$hardening_conf" << 'EOF'
-# OpenClaw Pi SSH Hardening - v2.2
+# OpenClaw Pi SSH Hardening - v2.3
 # Applied by harden-openclaw-pi.sh
 
 # Disable root login
@@ -1263,69 +1279,289 @@ install_tailscale() {
     echo "  - Direct peer-to-peer connections when possible"
     echo "  - Works with standard SSH, Termux on Android, etc."
     echo "  - Zero-trust network architecture"
+    echo "  - Native OpenClaw Gateway integration (serve/funnel modes)"
     echo ""
 
-    if ! confirm "Install Tailscale?"; then
+    if ! confirm "Install/configure Tailscale?"; then
         print_skip "Skipping Tailscale installation"
         return
     fi
 
+    # Variables used across the function
+    local tailscale_ip=""
+    local tailscale_hostname="rpi-openclaw"
+
+    # Check if already installed
     if command -v tailscale &> /dev/null; then
         print_skip "Tailscale already installed"
 
         if tailscale status &> /dev/null; then
             print_success "Tailscale is already running"
             tailscale status | head -10
-            return
+            tailscale_ip=$(tailscale ip -4 2>/dev/null || echo "")
         fi
+    else
+        # Fresh install
+        print_info "Installing Tailscale..."
+        curl -fsSL https://tailscale.com/install.sh | sh
+
+        print_info "Starting Tailscale..."
+        print_warning "You will need to authenticate via the URL shown below"
+
+        tailscale up
+
+        print_info "Setting Tailscale hostname to: $tailscale_hostname"
+        tailscale set --hostname "$tailscale_hostname"
+
+        tailscale_ip=$(tailscale ip -4 2>/dev/null || echo "")
+        print_success "Tailscale installed and configured"
     fi
 
-    print_info "Installing Tailscale..."
-    curl -fsSL https://tailscale.com/install.sh | sh
+    if [ -n "$tailscale_ip" ]; then
+        print_success "Tailscale IP: $tailscale_ip"
+        print_info "Device name: $tailscale_hostname"
+    fi
 
-    print_info "Starting Tailscale..."
-    print_warning "You will need to authenticate via the URL shown below"
-
-    # Start Tailscale
-    tailscale up
-
-    # Set hostname
-    local tailscale_hostname="rpi-openclaw"
-    print_info "Setting Tailscale hostname to: $tailscale_hostname"
-    tailscale set --hostname "$tailscale_hostname"
-
-    # Get Tailscale IP
-    local tailscale_ip
-    tailscale_ip=$(tailscale ip -4)
-    print_success "Tailscale installed and configured"
-    print_success "Tailscale IP: $tailscale_ip"
-    print_info "Device name: $tailscale_hostname"
-
-    # Update UFW to allow Tailscale
+    # Update UFW to allow Tailscale (idempotent — ufw handles duplicate rules gracefully)
     print_info "Configuring firewall for Tailscale..."
     ufw allow in on tailscale0
-
-    print_success "Firewall configured for Tailscale"
+    ufw allow out on tailscale0
+    print_success "Firewall configured for Tailscale (inbound + outbound)"
 
     # SSH restriction option
     if confirm "Restrict SSH to Tailscale-only? (More secure, but requires Tailscale to access)"; then
         print_warning "Configuring SSH to only accept connections via Tailscale"
 
-        # Remove general SSH rule
         ufw delete allow 22/tcp 2>/dev/null || true
-
-        # Allow SSH only on Tailscale interface
         ufw allow in on tailscale0 to any port 22 proto tcp
 
         print_success "SSH now only accessible via Tailscale network"
         print_warning "Make sure you're connected via Tailscale before closing this session!"
     fi
 
+    # =========================================================================
+    # OpenClaw Gateway / Tailscale Integration
+    # =========================================================================
+    echo ""
+    print_header "OpenClaw Gateway - Tailscale Integration"
+    print_info "OpenClaw has native Tailscale integration for its Gateway service."
+    print_info "Three Gateway modes available:"
+    echo "  serve  - Access via your Tailnet only (identity-based auth, no passwords)"
+    echo "  funnel - Public internet access via Tailscale Funnel (shared password required)"
+    echo "  off    - No Tailscale Gateway automation (default)"
+    echo ""
+    print_info "Prerequisites for serve/funnel modes:"
+    echo "  - MagicDNS enabled in Tailscale admin console"
+    echo "  - HTTPS certificates enabled in Tailscale admin console"
+    echo "  - For funnel: Tailscale v1.38.3+ (ports 443, 8443, or 10000 over TLS)"
+    echo ""
+    print_info "Documentation: https://docs.openclaw.ai/gateway/tailscale"
+    echo ""
+
+    # Variables for Gateway config
+    local openclaw_home="/home/${OPENCLAW_USER:?}"
+    local config_dir="$openclaw_home/.openclaw"
+    local config_file="$config_dir/openclaw.json"
+    local gateway_choice="3"
+    local gw_password=""
+
+    if [ "$NON_INTERACTIVE" = false ]; then
+        echo "Configure OpenClaw Gateway mode?"
+        echo "  1) serve  - Tailnet-only access (recommended for personal use)"
+        echo "  2) funnel - Public internet access (requires shared password)"
+        echo "  3) off    - Skip Gateway integration (default)"
+        echo ""
+        read -rp "Choose mode [1/2/3] (default: 3): " gateway_choice
+        gateway_choice=${gateway_choice:-3}
+    fi
+
+    case "$gateway_choice" in
+        1)
+            print_info "Configuring Gateway in 'serve' mode (Tailnet-only)..."
+            mkdir -p "$config_dir"
+
+            if [ -f "$config_file" ]; then
+                cp "$config_file" "${config_file}.backup-$(date +%Y%m%d-%H%M%S)"
+                print_info "Backed up existing openclaw.json"
+
+                if grep -q '"gateway"' "$config_file" 2>/dev/null; then
+                    print_warning "Existing gateway configuration found in openclaw.json"
+                    print_warning "Please update manually. See: https://docs.openclaw.ai/gateway/tailscale"
+                else
+                    if command -v python3 &>/dev/null; then
+                        OC_CONFIG="$config_file" python3 << 'PYMERGE'
+import json, os
+cf = os.environ["OC_CONFIG"]
+try:
+    with open(cf, "r") as f:
+        config = json.load(f)
+except (json.JSONDecodeError, FileNotFoundError):
+    config = {}
+config["gateway"] = {"bind": "loopback", "tailscale": {"mode": "serve"}}
+with open(cf, "w") as f:
+    json.dump(config, f, indent=2)
+    f.write("\n")
+PYMERGE
+                    else
+                        print_warning "python3 not found - writing fresh config"
+                        cat > "$config_file" << 'GWCONFIG'
+{
+  "gateway": {
+    "bind": "loopback",
+    "tailscale": {
+      "mode": "serve"
+    }
+  }
+}
+GWCONFIG
+                    fi
+                    print_success "Gateway mode set to 'serve'"
+                fi
+            else
+                cat > "$config_file" << 'GWCONFIG'
+{
+  "gateway": {
+    "bind": "loopback",
+    "tailscale": {
+      "mode": "serve"
+    }
+  }
+}
+GWCONFIG
+                print_success "Created openclaw.json with Gateway serve mode"
+            fi
+
+            chown "${OPENCLAW_USER}:${OPENCLAW_USER}" "$config_file"
+            chmod 600 "$config_file"
+            chown -R "${OPENCLAW_USER}:${OPENCLAW_USER}" "$config_dir"
+            ;;
+        2)
+            print_info "Configuring Gateway in 'funnel' mode (public internet)..."
+
+            if [ "$NON_INTERACTIVE" = false ]; then
+                read -rsp "Enter a shared password for Gateway access: " gw_password
+                echo  # newline after silent read
+                if [ -z "$gw_password" ]; then
+                    print_warning "No password provided - funnel mode requires a password"
+                    print_warning "Falling back to 'off' mode. Configure manually later."
+                    print_info "See: https://docs.openclaw.ai/gateway/tailscale"
+                    gateway_choice=3
+                fi
+            else
+                print_warning "Funnel mode requires a password - skipping in non-interactive mode"
+                gateway_choice=3
+            fi
+
+            if [ "$gateway_choice" = "2" ]; then
+                mkdir -p "$config_dir"
+
+                if [ -f "$config_file" ]; then
+                    cp "$config_file" "${config_file}.backup-$(date +%Y%m%d-%H%M%S)"
+                    print_info "Backed up existing openclaw.json"
+
+                    if grep -q '"gateway"' "$config_file" 2>/dev/null; then
+                        print_warning "Existing gateway configuration found in openclaw.json"
+                        print_warning "Please update manually. See: https://docs.openclaw.ai/gateway/tailscale"
+                    else
+                        if command -v python3 &>/dev/null; then
+                            OC_CONFIG="$config_file" GW_PASSWORD="$gw_password" python3 << 'PYMERGE2'
+import json, os
+cf = os.environ["OC_CONFIG"]
+password = os.environ.get("GW_PASSWORD", "")
+try:
+    with open(cf, "r") as f:
+        config = json.load(f)
+except (json.JSONDecodeError, FileNotFoundError):
+    config = {}
+config["gateway"] = {
+    "bind": "loopback",
+    "tailscale": {"mode": "funnel"},
+    "auth": {"mode": "password", "password": password}
+}
+with open(cf, "w") as f:
+    json.dump(config, f, indent=2)
+    f.write("\n")
+PYMERGE2
+                        else
+                            print_warning "python3 not found - writing fresh config"
+                            cat > "$config_file" << GWFUNNEL
+{
+  "gateway": {
+    "bind": "loopback",
+    "tailscale": {
+      "mode": "funnel"
+    },
+    "auth": {
+      "mode": "password",
+      "password": "$gw_password"
+    }
+  }
+}
+GWFUNNEL
+                        fi
+                        print_success "Gateway mode set to 'funnel' with password auth"
+                    fi
+                else
+                    if command -v python3 &>/dev/null; then
+                        OC_CONFIG="$config_file" GW_PASSWORD="$gw_password" python3 << 'PYMERGE3'
+import json, os
+cf = os.environ["OC_CONFIG"]
+password = os.environ.get("GW_PASSWORD", "")
+config = {
+    "gateway": {
+        "bind": "loopback",
+        "tailscale": {"mode": "funnel"},
+        "auth": {"mode": "password", "password": password}
+    }
+}
+with open(cf, "w") as f:
+    json.dump(config, f, indent=2)
+    f.write("\n")
+PYMERGE3
+                    else
+                        cat > "$config_file" << GWFUNNEL2
+{
+  "gateway": {
+    "bind": "loopback",
+    "tailscale": {
+      "mode": "funnel"
+    },
+    "auth": {
+      "mode": "password",
+      "password": "$gw_password"
+    }
+  }
+}
+GWFUNNEL2
+                    fi
+                    print_success "Created openclaw.json with Gateway funnel mode"
+                fi
+
+                chown "${OPENCLAW_USER}:${OPENCLAW_USER}" "$config_file"
+                chmod 600 "$config_file"
+                chown -R "${OPENCLAW_USER}:${OPENCLAW_USER}" "$config_dir"
+            fi
+            ;;
+        3|*)
+            print_skip "Skipping Gateway Tailscale integration"
+            print_info "Configure later by editing ~/.openclaw/openclaw.json"
+            print_info "See: https://docs.openclaw.ai/gateway/tailscale"
+            ;;
+    esac
+
+    echo ""
+    print_info "Tailscale Gateway Notes:"
+    echo "  - Enable MagicDNS: Tailscale admin console > DNS > Enable MagicDNS"
+    echo "  - Enable HTTPS:    Tailscale admin console > DNS > Enable HTTPS Certificates"
+    echo "  - Full docs:       https://docs.openclaw.ai/gateway/tailscale"
+
     echo ""
     print_success "Tailscale setup complete!"
-    print_info "Access this Pi from other devices:"
-    echo "  SSH: ssh $OPENCLAW_USER@$tailscale_ip"
-    echo "  SSH: ssh $OPENCLAW_USER@$tailscale_hostname"
+    if [ -n "$tailscale_ip" ]; then
+        print_info "Access this Pi from other devices:"
+        echo "  SSH: ssh $OPENCLAW_USER@$tailscale_ip"
+        echo "  SSH: ssh $OPENCLAW_USER@$tailscale_hostname"
+    fi
 }
 
 ###############################################################################
@@ -1488,6 +1724,13 @@ SECURITYAUDIT
 
     print_success "OpenClaw installation complete!"
     print_info "Test with: su - $OPENCLAW_USER -c 'openclaw --version'"
+
+    echo ""
+    print_info "Developer Tools & API Proxy:"
+    echo "  See the project README for recommendations on AI coding tools"
+    echo "  (Claude Code, Codex, Gemini CLI) and CLIProxyAPI for sharing"
+    echo "  OAuth-based API access with OpenClaw in a controlled manner."
+    echo "  https://github.com/router-for-me/CLIProxyAPI"
 }
 
 ###############################################################################
@@ -1695,7 +1938,7 @@ display_summary() {
     +-----------------------------------------------------------+
     |                                                           |
     |   OpenClaw Raspberry Pi Security Hardening Complete!      |
-    |                Version 2.2                                |
+    |                Version 2.3                                |
     |                                                           |
     +-----------------------------------------------------------+
 EOF
@@ -1793,12 +2036,12 @@ main() {
     cat << 'EOF'
 This script performs comprehensive security hardening with:
 
-NEW IN v2.2:
+NEW IN v2.3:
+  - User session environment (DBUS/XDG) for Gateway
+  - OpenClaw Gateway Tailscale integration (serve/funnel/off)
+  - Developer tools & API proxy guidance
   - Version tracking and upgrade detection
   - Preserves custom configurations
-  - Tailscale installation and setup
-  - OpenClaw automated installation
-  - Enhanced finalization workflow
 
 Hardening Steps:
  1. System Updates
