@@ -1,0 +1,8 @@
+# ShellCheck configuration for OpenClaw Pi
+
+# Allow sourcing files from the script directory
+source-path=SCRIPTDIR
+
+# SC1091: Not following sourced file (os-release is system file)
+# We source /etc/os-release which shellcheck can't follow
+external-sources=true

@@ -1,0 +1,20 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Claude Code local config
+.claude/
+
+# Logs
+*.log
+
+# Environment / secrets
+.env
+.env.*
