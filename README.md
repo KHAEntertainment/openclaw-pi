@@ -2,7 +2,7 @@
 
 > **Production-ready security hardening for isolated OpenClaw deployments on Raspberry Pi**
 
-Comprehensive, automated security hardening script for running [OpenClaw](https://github.com/openclaw/openclaw) on Raspberry Pi in a secure, isolated environment. Perfect for personal AI infrastructure, development workstations, or shareable community images.
+Comprehensive, automated security hardening script for running [OpenClaw](https://github.com/openclaw/openclaw) on Raspberry Pi in a secure, isolated environment. Perfect for headless AI infrastructure, personal servers, or shareable community images.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-2.4-blue.svg)]()
@@ -41,37 +41,46 @@ Comprehensive, automated security hardening script for running [OpenClaw](https:
 ### **Hardware Requirements**
 
 **Recommended Devices (Best Experience):**
-- **Raspberry Pi 4 Compute Module** - Excellent performance, flexible form factors
 - **Raspberry Pi 5** - Latest hardware, best performance
-- **Raspberry Pi 5 Compute Module** - Coming soon, industrial applications
+- **Raspberry Pi 4 Model B (2GB+)** - Excellent price/performance
+- **Raspberry Pi 4/5 Compute Module** - Industrial and embedded applications
 
 **Minimum Requirements:**
-- Raspberry Pi 4 Model B (2GB RAM minimum, 4GB+ recommended)
-- MicroSD card: 32GB minimum (64GB+ recommended for development)
+- 1GB RAM, 1 CPU core, 500MB disk (per OpenClaw docs)
+- Recommended: Raspberry Pi 4 (2GB+) or Pi 5
+- Storage: 16GB+ SD card or **USB SSD** (strongly recommended for performance and reliability)
 - Power supply: Official Raspberry Pi power adapter
 - Network: Ethernet recommended for initial setup
 
+> **⚠️ Pi Zero 2 W is not recommended** — insufficient resources for reliable operation.
+
+> **💡 Performance Tips:**
+> - Use a **USB SSD** instead of SD card for significantly better I/O performance
+> - For systems with **2GB or less RAM**, add swap space (the script does not configure this automatically)
+
 **Why These Models?**
-- ARM64 architecture support
-- Sufficient RAM for Node.js + OpenClaw
+- 64-bit ARM (aarch64) architecture required — Node.js 22 and modern tools need 64-bit OS
+- OpenClaw acts as a lightweight Gateway to cloud AI models — the Pi doesn't run models locally, so minimal resources are needed
 - Good I/O performance for AIDE file integrity monitoring
 - Active community support
 
 ### **Operating System**
 
-**Required: Raspberry Pi OS 64-bit FULL**
+**Recommended: Raspberry Pi OS Lite (64-bit)**
 
 ```bash
 # Use Raspberry Pi Imager to install:
-# OS: Raspberry Pi OS (64-bit) - WITH DESKTOP
-# NOT the Lite version
+# OS: Raspberry Pi OS Lite (64-bit)
+# Headless — no desktop environment needed
 ```
 
-**Why 64-bit Full?**
-- Maximum compatibility with Node.js packages
-- Desktop tools available for OpenClaw's coding agents
-- Full suite of system utilities
-- Better performance on modern Pi hardware
+**Why Lite (64-bit)?**
+- OpenClaw runs headless — no GUI/desktop required
+- Smaller footprint, less attack surface, fewer unnecessary services
+- All dependencies are CLI-based (`git`, `curl`, `build-essential`, Node.js 22+)
+- 64-bit (aarch64) is mandatory — Node.js 22 requires it
+
+> **Note:** The Desktop version also works but wastes resources on a GUI that OpenClaw doesn't use. If you need browser automation features, you can install Chromium on either version: `sudo apt install chromium-browser`
 
 ### **Network Isolation**
 
@@ -102,13 +111,13 @@ to isolate a Raspberry Pi from my main network?"
 Configure during OS installation with Raspberry Pi Imager:
 
 1. Open **Raspberry Pi Imager**
-2. Choose OS: **Raspberry Pi OS (64-bit) - Full**
+2. Choose OS: **Raspberry Pi OS Lite (64-bit)**
 3. Click **⚙️ Settings** (gear icon)
 4. Enable **"Enable Raspberry Pi Connect"**
 5. Set hostname: `rpi-openclaw`
 6. Configure WiFi if needed
 7. Set username and password
-8. Write to SD card
+8. Write to SD card (or USB SSD)
 
 **Benefits:**
 - Secure remote access from any device
@@ -524,6 +533,8 @@ npm link
          └──────────────────────┘
 ```
 
+> **Lightweight Architecture:** The Raspberry Pi doesn't run AI models locally. OpenClaw acts as a Gateway that connects to cloud-based AI services (Claude, GPT, etc.) over the internet. All heavy AI processing happens in the cloud, which is why OpenClaw can run effectively on minimal hardware with just Node.js and basic tools.
+
 ### **File System Layout**
 
 ```
@@ -705,11 +716,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 | Metric | Value |
 |--------|-------|
 | Script Version | 2.4 |
-| Lines of Code | ~1870 |
+| Lines of Code | ~2160 |
 | Security Components | 10+ |
 | Supported Pi Models | 4, 5, CM4 |
 | Installation Time | 15-45 min |
-| Tested Environments | Raspberry Pi OS 64-bit Full |
+| Tested Environments | Raspberry Pi OS 64-bit (Lite recommended) |
 | License | MIT |
 
 ---
