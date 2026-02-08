@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.4.0] - 2025-02-07
+
+### Added
+- Homebrew (Linuxbrew) installation inside OpenClaw installer
+- Optional confirm prompt before Homebrew install
+- Non-interactive Homebrew support via `NONINTERACTIVE=1` environment variable
+- Brew PATH configuration in openclaw user's `.bashrc`
+- Warning when Homebrew is declined (plugins may fail without it)
+
+### Changed
+- OpenClaw installation steps updated (5 steps, Homebrew first)
+- Manual installation instructions now include Homebrew setup
+
 ## [2.3.0] - 2025-02-07
 
 ### Added

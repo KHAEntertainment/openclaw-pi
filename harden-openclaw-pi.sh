@@ -3,13 +3,11 @@
 ###############################################################################
 # OpenClaw Raspberry Pi - Complete Security Hardening Script
 #
-# Version: 2.3
-# Changes from 2.2:
-#  - User session environment (DBUS/XDG_RUNTIME_DIR) for Gateway
-#  - OpenClaw Gateway Tailscale integration (serve/funnel/off)
-#  - Developer tools and API proxy guidance
-#  - UFW outbound rule for Tailscale interface
-#  - Fixed Gateway systemctl --user failures
+# Version: 2.4
+# Changes from 2.3:
+#  - Homebrew (Linuxbrew) installation for OpenClaw plugin support
+#  - Optional confirm prompt with non-interactive support
+#  - Brew PATH configuration in openclaw user's .bashrc
 #
 # This script performs comprehensive security hardening for Raspberry Pi
 # systems running OpenClaw. It can be run on fresh installations or existing
@@ -21,13 +19,13 @@
 #
 # Author: Community Contribution
 # License: MIT
-# Version: 2.3
+# Version: 2.4
 ###############################################################################
 
 set -e  # Exit on error
 
 # Script configuration
-SCRIPT_VERSION="2.3"
+SCRIPT_VERSION="2.4"
 VERSION_FILE="/etc/openclaw-hardening-version"
 OPENCLAW_USER="openclaw"
 LOGFILE="/var/log/openclaw-hardening-$(date +%Y%m%d-%H%M%S).log"
@@ -58,7 +56,7 @@ for arg in "$@"; do
             ;;
         --help|-h)
             cat << 'HELPEOF'
-OpenClaw Raspberry Pi Security Hardening Script v2.3
+OpenClaw Raspberry Pi Security Hardening Script v2.4
 
 Usage: sudo ./harden-openclaw-pi.sh [OPTIONS]
 
@@ -569,7 +567,7 @@ configure_ssh() {
     print_info "Writing SSH hardening configuration..."
 
     cat > "$hardening_conf" << 'EOF'
-# OpenClaw Pi SSH Hardening - v2.3
+# OpenClaw Pi SSH Hardening - v2.4
 # Applied by harden-openclaw-pi.sh
 
 # Disable root login
@@ -1573,16 +1571,21 @@ install_openclaw() {
 
     print_info "This will install OpenClaw as the '$OPENCLAW_USER' user"
     print_info "Steps:"
-    echo "  1. Install Node.js 22+ via nvm"
-    echo "  2. Install Claude Code CLI (requires API key)"
-    echo "  3. Clone and build OpenClaw"
-    echo "  4. Run security audit and apply fixes"
+    echo "  1. Install Homebrew (Linuxbrew) for plugin support"
+    echo "  2. Install Node.js 22+ via nvm"
+    echo "  3. Install Claude Code CLI (requires API key)"
+    echo "  4. Clone and build OpenClaw"
+    echo "  5. Run security audit and apply fixes"
     echo ""
 
     if ! confirm "Install OpenClaw now?"; then
         print_skip "Skipping OpenClaw installation"
         print_info "Install later as user '$OPENCLAW_USER':"
         echo "  su - $OPENCLAW_USER"
+        # shellcheck disable=SC2016
+        echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+        # shellcheck disable=SC2016
+        echo '  echo '\''eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"'\'' >> ~/.bashrc'
         echo "  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash"
         echo "  nvm install 22"
         echo "  git clone https://github.com/openclaw/openclaw.git"
@@ -1598,6 +1601,53 @@ install_openclaw() {
     fi
 
     print_info "Installing as user: $OPENCLAW_USER"
+
+    # Install Homebrew (Linuxbrew) for plugin support
+    if su - "$OPENCLAW_USER" -c 'command -v brew' &>/dev/null; then
+        print_skip "Homebrew already installed"
+    else
+        print_info "Homebrew (Linuxbrew) is required for OpenClaw plugin installation"
+        print_info "Without it, plugins like Claude Code and Codex will fail to install"
+
+        if confirm "Install Homebrew (Linuxbrew)?"; then
+            print_info "Installing Homebrew as '$OPENCLAW_USER' (this may take a few minutes)..."
+
+            if su - "$OPENCLAW_USER" << 'BREWINSTALL'
+NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Add brew to PATH
+if [ -d /home/linuxbrew/.linuxbrew ]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+
+    if ! grep -q "linuxbrew" ~/.bashrc 2>/dev/null; then
+        echo '' >> ~/.bashrc
+        echo '# Homebrew (Linuxbrew)' >> ~/.bashrc
+        echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> ~/.bashrc
+    fi
+
+    echo "Homebrew installed: $(brew --version | head -1)"
+else
+    echo "ERROR: Homebrew installation directory not found"
+    exit 1
+fi
+BREWINSTALL
+            then
+                print_success "Homebrew installed and configured"
+            else
+                print_error "Homebrew installation failed"
+                print_warning "OpenClaw plugins may not install correctly without Homebrew"
+            fi
+        else
+            print_warning "Skipping Homebrew installation"
+            print_warning "OpenClaw plugins that depend on brew will fail to install"
+            print_info "Install manually later:"
+            echo '  su - openclaw'
+            # shellcheck disable=SC2016
+            echo '  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
+            # shellcheck disable=SC2016
+            echo '  echo '\''eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"'\'' >> ~/.bashrc'
+        fi
+    fi
 
     # Install Node.js via nvm
     print_info "Installing Node.js 22 via nvm..."
@@ -1938,7 +1988,7 @@ display_summary() {
     +-----------------------------------------------------------+
     |                                                           |
     |   OpenClaw Raspberry Pi Security Hardening Complete!      |
-    |                Version 2.3                                |
+    |                Version 2.4                                |
     |                                                           |
     +-----------------------------------------------------------+
 EOF
@@ -2036,12 +2086,12 @@ main() {
     cat << 'EOF'
 This script performs comprehensive security hardening with:
 
-NEW IN v2.3:
-  - User session environment (DBUS/XDG) for Gateway
+NEW IN v2.4:
+  - Homebrew (Linuxbrew) for OpenClaw plugin support
   - OpenClaw Gateway Tailscale integration (serve/funnel/off)
+  - User session environment (DBUS/XDG) for Gateway
   - Developer tools & API proxy guidance
   - Version tracking and upgrade detection
-  - Preserves custom configurations
 
 Hardening Steps:
  1. System Updates

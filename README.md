@@ -5,7 +5,7 @@
 Comprehensive, automated security hardening script for running [OpenClaw](https://github.com/openclaw/openclaw) on Raspberry Pi in a secure, isolated environment. Perfect for personal AI infrastructure, development workstations, or shareable community images.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.3-blue.svg)]()
+[![Version](https://img.shields.io/badge/version-2.4-blue.svg)]()
 [![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-4%2F5-red.svg)]()
 
 ---
@@ -20,12 +20,13 @@ Comprehensive, automated security hardening script for running [OpenClaw](https:
 - ✅ **Auditing**: auditd system monitoring, Lynis security audits
 - ✅ **Automation**: Daily security scans, automated reporting
 
-**Enhanced User Experience (v2.3)**
+**Enhanced User Experience (v2.4)**
 - ✅ **Progress Indicators**: Real-time feedback for long-running operations
 - ✅ **Skip Options**: Run time-consuming tasks later if needed
 - ✅ **Version Tracking**: Detects previous installations, preserves custom configs
 - ✅ **Tailscale Integration**: Secure remote access via encrypted WireGuard VPN
 - ✅ **OpenClaw Installer**: Automated Node.js + OpenClaw deployment
+- ✅ **Homebrew (Linuxbrew)**: Automatic installation for OpenClaw plugin support
 
 **Production Ready**
 - ✅ **Idempotent**: Safe to run multiple times
@@ -584,7 +585,8 @@ User Device
 
 ## 🗺️ Roadmap
 
-### **Version 2.3 (Current)**
+### **Version 2.4 (Current)**
+- [x] **Homebrew (Linuxbrew)**: Automatic installation for OpenClaw plugin support
 - [x] **User session environment**: DBUS/XDG_RUNTIME_DIR setup for OpenClaw Gateway service
 - [x] **OpenClaw Gateway Tailscale integration**: Native serve/funnel/off mode configuration
 - [x] **Developer tools guidance**: CLIProxyAPI and AI coding tool recommendations
@@ -702,7 +704,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 | Metric | Value |
 |--------|-------|
-| Script Version | 2.3 |
+| Script Version | 2.4 |
 | Lines of Code | ~1870 |
 | Security Components | 10+ |
 | Supported Pi Models | 4, 5, CM4 |
