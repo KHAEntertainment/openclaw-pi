@@ -223,7 +223,7 @@ confirm() {
             read -r -p "$prompt [y/N] " answer
             answer="${answer:-n}"
         fi
-        
+
         case "${answer,,}" in
             y|yes) return 0 ;;
             *) return 1 ;;
@@ -345,7 +345,7 @@ phase_desktop_decision() {
         echo "  2) Remove entirely"
         read -r -p "Enter choice [1-2]: " choice_num
         choice_num="${choice_num:-1}"
-        
+
         case "$choice_num" in
             2) choice="Remove entirely" ;;
             *) choice="Disable only (reversible)" ;;

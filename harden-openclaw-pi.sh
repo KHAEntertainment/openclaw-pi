@@ -230,7 +230,7 @@ confirm() {
             read -r -p "$prompt [y/N] " answer
             answer="${answer:-n}"
         fi
-        
+
         case "${answer,,}" in
             y|yes) return 0 ;;
             *) return 1 ;;
@@ -264,7 +264,7 @@ select_hardening_steps() {
         echo "  2) Select steps (advanced)"
         read -r -p "Enter choice [1-2]: " mode_num
         mode_num="${mode_num:-1}"
-        
+
         case "$mode_num" in
             2) mode="Select steps (advanced)" ;;
             *) mode="Run all steps (recommended)" ;;
