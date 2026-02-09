@@ -141,7 +141,7 @@ ensure_gum() {
     if [ -z "$url" ]; then
         echo "ERROR: Could not find a gum release asset for ${os}/${arch} (gum v${version})." >&2
         echo "Tried: ${candidates[*]}" >&2
-        rm -rf "$tmp"
+        trap - RETURN
         return 1
     fi
 
@@ -172,13 +172,14 @@ ensure_gum() {
     gum_path="$(find "$tmp" -type f -name gum -perm -111 2>/dev/null | head -n 1)"
     if [ -z "$gum_path" ]; then
         echo "ERROR: gum binary not found after extracting ${url}" >&2
-        rm -rf "$tmp"
+        trap - RETURN
         return 1
     fi
 
     install -m 0755 "$gum_path" /usr/local/bin/gum
     rm -rf "$tmp"
     USE_GUM=true
+    trap - RETURN
 }
 
 gum_tty() {
@@ -489,35 +490,33 @@ run_with_progress() {
     fi
 
     if [ "$NON_INTERACTIVE" = false ]; then
-        # Try to use gum for interactive choice, but fall back to read-based prompt if unavailable
+        local choice="Run now (recommended)"
+        
+        # Try to use gum for interactive prompt, fall back to simple prompt if unavailable
         if ensure_gum 2>/dev/null; then
-            local choice
             choice=$(gum_tty choose --header "Long operation" \
                 "Run now (recommended)" \
                 "Skip and run manually later") || choice="Run now (recommended)"
-
-            if [ "$choice" = "Skip and run manually later" ]; then
-                print_skip "Skipping - will run manually later"
-                if [ -n "$skip_message" ]; then
-                    print_info "$skip_message"
-                fi
-                return 1
-            fi
         else
-            # Fallback to read-based prompt
-            print_info "Continue with this operation? (This may take ${estimated_time})"
-            read -rp "Run now? [Y/n]: " response
-            response=${response:-y}
-            case "$response" in
-                [Nn]*)
-                    print_skip "Skipping - will run manually later"
-                    if [ -n "$skip_message" ]; then
-                        print_info "$skip_message"
-                    fi
-                    return 1
-                    ;;
+            # Fallback to simple text prompt when gum is unavailable
+            print_warning "gum TUI unavailable; using simple text prompt"
+            echo ""
+            echo "Options:"
+            echo "  1) Run now (recommended)"
+            echo "  2) Skip and run manually later"
+            echo ""
+            read -r -p "Enter your choice [1-2] (default: 1): " choice_num < "$TTY_DEV" || choice_num="1"
+            
+            case "$choice_num" in
+                2) choice="Skip and run manually later" ;;
+                *) choice="Run now (recommended)" ;;
             esac
         fi
+
+        if [ "$choice" = "Skip and run manually later" ]; then
+            print_skip "Skipping - will run manually later"
+            if [ -n "$skip_message" ]; then
+                print_info "$skip_message"
 
         print_info "Starting process..."
     fi

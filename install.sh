@@ -13,7 +13,6 @@ cleanup_install_dir() {
     rm -rf "$INSTALL_DIR"
 }
 trap cleanup_install_dir EXIT
-
 NON_INTERACTIVE=false
 
 # Verify root
@@ -31,6 +30,7 @@ for arg in "$@"; do
             ;;
     esac
 done
+
 
 echo "============================================"
 echo "  OpenClaw Pi - Security Hardening Installer"

@@ -136,7 +136,7 @@ ensure_gum() {
     if [ -z "$url" ]; then
         echo "ERROR: Could not find a gum release asset for ${os}/${arch} (gum v${version})." >&2
         echo "Tried: ${candidates[*]}" >&2
-        rm -rf "$tmp"
+        trap - RETURN
         return 1
     fi
 
@@ -167,16 +167,18 @@ ensure_gum() {
     gum_path="$(find "$tmp" -type f -name gum -perm -111 2>/dev/null | head -n 1)"
     if [ -z "$gum_path" ]; then
         echo "ERROR: gum binary not found after extracting ${url}" >&2
-        rm -rf "$tmp"
+        trap - RETURN
         return 1
     fi
 
     install -m 0755 "$gum_path" /usr/local/bin/gum
     rm -rf "$tmp"
     USE_GUM=true
+    trap - RETURN
 }
 
 gum_tty() {
+    # Make gum work when the script is piped (e.g. curl | sudo bash) by using /dev/tty for all I/O.
     # shellcheck disable=SC2094
     if [ -r "$TTY_DEV" ] && [ -w "$TTY_DEV" ]; then
         gum "$@" <"$TTY_DEV" >"$TTY_DEV" 2>"$TTY_DEV"
