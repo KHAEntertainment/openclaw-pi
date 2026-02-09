@@ -43,6 +43,16 @@ That's it. The script walks you through everything interactively.
 3. Optionally install Tailscale for secure remote access
 4. Optionally install OpenClaw with Node.js and Homebrew
 
+### Already set up? Just want the headless optimizer?
+
+If your Pi is already hardened and running Desktop OS, you can run just the cleanup utility:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KHAEntertainment/openclaw-pi/main/optimize-headless.sh | sudo bash
+```
+
+Preview first with `--simulate`, or see the full [Headless Optimization guide](docs/HEADLESS.md).
+
 ### Other ways to run
 
 ```bash

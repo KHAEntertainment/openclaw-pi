@@ -10,11 +10,29 @@ Convert a Raspberry Pi OS Desktop installation into a lean headless server for O
 
 **If you installed Raspberry Pi OS Desktop:** Yes — you're running ~200+ unnecessary packages (office suite, games, media players, screen savers) that waste disk space, RAM, and CPU on a headless server.
 
-The main hardening script will **automatically detect** a desktop environment and offer to run this for you. You can also run it separately.
+The main hardening script will **automatically detect** a desktop environment and offer to run this for you. You can also run it standalone — no need to re-run the full hardening script.
 
 ---
 
-## Usage
+## Quick Start (standalone)
+
+Already set up and just want to clean up Desktop bloat? One command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KHAEntertainment/openclaw-pi/main/optimize-headless.sh | sudo bash
+```
+
+### Preview first (recommended)
+
+Download it, then simulate before committing:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KHAEntertainment/openclaw-pi/main/optimize-headless.sh -o optimize-headless.sh
+chmod +x optimize-headless.sh
+sudo ./optimize-headless.sh --simulate
+```
+
+### All options
 
 ```bash
 # Run interactively
