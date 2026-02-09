@@ -209,17 +209,36 @@ confirm() {
         return 0
     fi
 
-    ensure_gum
-
     local prompt="$1"
     local default="${2:-n}"
-    local default_flag="--default=false"
 
-    if [ "$default" = "y" ]; then
-        default_flag="--default=true"
+    # Try to use gum if available, but fall back to read-based prompt if it fails
+    # Suppress stderr to avoid confusing users - gum is optional and failures are expected
+    if ensure_gum 2>/dev/null; then
+        local default_flag="--default=false"
+        if [ "$default" = "y" ]; then
+            default_flag="--default=true"
+        fi
+        gum_tty confirm $default_flag "$prompt"
+        return $?
     fi
 
-    gum_tty confirm $default_flag "$prompt"
+    # Fallback to read-based prompt if gum is unavailable
+    if [ "$default" = "y" ]; then
+        prompt="$prompt [Y/n]: "
+    else
+        prompt="$prompt [y/N]: "
+    fi
+
+    while true; do
+        read -rp "$prompt" response
+        response=${response:-$default}
+        case "$response" in
+            [Yy]*) return 0 ;;
+            [Nn]*) return 1 ;;
+            *) echo "Please answer yes or no." ;;
+        esac
+    done
 }
 
 RUN_ALL_STEPS=true
