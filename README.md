@@ -49,6 +49,7 @@ That's it. The script walks you through everything interactively.
 
 If your Pi is already hardened and running Desktop OS, you can run just the cleanup utility:
 
+**As the main SUDO user (NOT Openclaw User) run:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/KHAEntertainment/openclaw-pi/main/optimize-headless.sh | sudo bash
 ```
