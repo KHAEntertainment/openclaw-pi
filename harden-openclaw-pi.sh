@@ -469,12 +469,28 @@ run_with_progress() {
     fi
 
     if [ "$NON_INTERACTIVE" = false ]; then
-        ensure_gum || return 1
-
-        local choice
-        choice=$(gum_tty choose --header "Long operation" \
-            "Run now (recommended)" \
-            "Skip and run manually later") || choice="Run now (recommended)"
+        local choice="Run now (recommended)"
+        
+        # Try to use gum for interactive prompt, fall back to simple prompt if unavailable
+        if ensure_gum; then
+            choice=$(gum_tty choose --header "Long operation" \
+                "Run now (recommended)" \
+                "Skip and run manually later") || choice="Run now (recommended)"
+        else
+            # Fallback to simple text prompt when gum is unavailable
+            print_warning "gum TUI unavailable; using simple text prompt"
+            echo ""
+            echo "Options:"
+            echo "  1) Run now (recommended)"
+            echo "  2) Skip and run manually later"
+            echo ""
+            read -r -p "Enter your choice [1-2] (default: 1): " choice_num < "$TTY_DEV" || choice_num="1"
+            
+            case "$choice_num" in
+                2) choice="Skip and run manually later" ;;
+                *) choice="Run now (recommended)" ;;
+            esac
+        fi
 
         if [ "$choice" = "Skip and run manually later" ]; then
             print_skip "Skipping - will run manually later"
