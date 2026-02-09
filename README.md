@@ -29,7 +29,9 @@ A one-command security setup for running [OpenClaw](https://github.com/openclaw/
 
 ### Install
 
-SSH into your Pi, then:
+**Recomended: Flash a new install of Raspberry Pi OS, and set it up on an isolated virtual network if possible.**
+
+SSH into your Pi OR use Raspberry Pi Connect for isolated environments (recommended) then:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/KHAEntertainment/openclaw-pi/main/install.sh | sudo bash
