@@ -111,8 +111,6 @@ ensure_gum() {
     arch="$(uname -m)"
 
     tmp="$(mktemp -d)"
-    # shellcheck disable=SC2064
-    trap "rm -rf '$tmp'" RETURN
 
     base="https://github.com/charmbracelet/gum/releases/download/v${version}"
 
@@ -126,9 +124,11 @@ ensure_gum() {
     esac
 
     url=""
+    selected_asset=""
     for asset in "${candidates[@]}"; do
         if curl -fsSLI "${base}/${asset}" &>/dev/null; then
             url="${base}/${asset}"
+            selected_asset="$asset"
             break
         fi
     done
@@ -136,27 +136,48 @@ ensure_gum() {
     if [ -z "$url" ]; then
         echo "ERROR: Could not find a gum release asset for ${os}/${arch} (gum v${version})." >&2
         echo "Tried: ${candidates[*]}" >&2
+        rm -rf "$tmp"
         return 1
     fi
 
     echo "Installing gum v${version} (${os}/${arch})..."
     curl -fsSL "$url" -o "${tmp}/gum.tar.gz"
+
+    # Verify archive integrity (supply-chain hardening).
+    curl -fsSL "${base}/checksums.txt" -o "${tmp}/checksums.txt"
+    local expected_sha
+    expected_sha="$(awk -v a="$selected_asset" '$2 == a {print $1}' "${tmp}/checksums.txt" | head -n 1)"
+    if [ -z "$expected_sha" ]; then
+        echo "ERROR: Could not find SHA256 for ${selected_asset} in checksums.txt" >&2
+        rm -rf "$tmp"
+        return 1
+    fi
+
+    if ! echo "${expected_sha}  ${tmp}/gum.tar.gz" | sha256sum -c - >/dev/null 2>&1; then
+        echo "ERROR: SHA256 mismatch for downloaded gum archive" >&2
+        rm -rf "$tmp"
+        return 1
+    fi
+
     tar -xzf "${tmp}/gum.tar.gz" -C "$tmp"
 
     local gum_path
     gum_path="$(find "$tmp" -type f -name gum -perm -111 2>/dev/null | head -n 1)"
     if [ -z "$gum_path" ]; then
         echo "ERROR: gum binary not found after extracting ${url}" >&2
+        rm -rf "$tmp"
         return 1
     fi
 
     install -m 0755 "$gum_path" /usr/local/bin/gum
+    rm -rf "$tmp"
     USE_GUM=true
 }
 
 gum_tty() {
-    if [ -r "$TTY_DEV" ]; then
-        gum "$@" <"$TTY_DEV"
+    # shellcheck disable=SC2094
+    if [ -r "$TTY_DEV" ] && [ -w "$TTY_DEV" ]; then
+        gum "$@" <"$TTY_DEV" >"$TTY_DEV" 2>"$TTY_DEV"
     else
         gum "$@"
     fi
@@ -202,17 +223,36 @@ confirm() {
         return 0
     fi
 
-    ensure_gum
-
     local prompt="$1"
     local default="${2:-n}"
 
-    local default_flag="--default=false"
-    if [ "$default" = "y" ]; then
-        default_flag="--default=true"
+    # Try to use gum if available, but fall back to read-based prompt if it fails
+    if ensure_gum 2>/dev/null; then
+        local default_flag="--default=false"
+        if [ "$default" = "y" ]; then
+            default_flag="--default=true"
+        fi
+
+        gum_tty confirm $default_flag "$prompt"
+        return $?
     fi
 
-    gum_tty confirm $default_flag "$prompt"
+    # Fallback to read-based prompt if gum is unavailable
+    if [ "$default" = "y" ]; then
+        prompt="$prompt [Y/n]: "
+    else
+        prompt="$prompt [y/N]: "
+    fi
+
+    while true; do
+        read -rp "$prompt" response
+        response=${response:-$default}
+        case "$response" in
+            [Yy]*) return 0 ;;
+            [Nn]*) return 1 ;;
+            *) echo "Please answer yes or no." ;;
+        esac
+    done
 }
 
 check_root() {
