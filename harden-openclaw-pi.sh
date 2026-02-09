@@ -250,7 +250,11 @@ select_hardening_steps() {
         return 0
     fi
 
-    ensure_gum
+    if ! ensure_gum 2>/dev/null; then
+        print_warning "gum unavailable; defaulting to run all steps"
+        RUN_ALL_STEPS=true
+        return 0
+    fi
 
     print_header "Step Selection"
     print_info "You can run the full hardening wizard, or select specific steps."
@@ -267,8 +271,7 @@ select_hardening_steps() {
     fi
 
     RUN_ALL_STEPS=false
-    unset RUN_STEPS
-    declare -A RUN_STEPS
+    RUN_STEPS=()
 
     local options=(
         "System Updates"
@@ -1554,19 +1557,34 @@ install_tailscale() {
     local gw_password=""
 
     if [ "$NON_INTERACTIVE" = false ]; then
-        ensure_gum || true
+        ensure_gum 2>/dev/null || true
 
-        local gw_mode
-        gw_mode=$(gum_tty choose --header "Configure OpenClaw Gateway mode?" \
-            "serve  - Tailnet-only access (recommended)" \
-            "funnel - Public internet access (password)" \
-            "off    - Skip (default)") || gw_mode="off    - Skip (default)"
+        if [ "$USE_GUM" = true ]; then
+            local gw_mode
+            gw_mode=$(gum_tty choose --header "Configure OpenClaw Gateway mode?" \
+                "serve  - Tailnet-only access (recommended)" \
+                "funnel - Public internet access (password)" \
+                "off    - Skip (default)") || gw_mode="off    - Skip (default)"
 
-        case "$gw_mode" in
-            serve*) gateway_choice="1" ;;
-            funnel*) gateway_choice="2" ;;
-            *) gateway_choice="3" ;;
-        esac
+            case "$gw_mode" in
+                serve*) gateway_choice="1" ;;
+                funnel*) gateway_choice="2" ;;
+                *) gateway_choice="3" ;;
+            esac
+        else
+            echo "Configure OpenClaw Gateway mode?"
+            echo "  1) serve  - Tailnet-only access (recommended)"
+            echo "  2) funnel - Public internet access (password)"
+            echo "  3) off    - Skip (default)"
+            echo ""
+
+            if [ -r "$TTY_DEV" ]; then
+                read -r -p "Choose mode [1/2/3] (default: 3): " gateway_choice <"$TTY_DEV"
+            else
+                read -r -p "Choose mode [1/2/3] (default: 3): " gateway_choice
+            fi
+            gateway_choice=${gateway_choice:-3}
+        fi
     fi
 
     case "$gateway_choice" in
@@ -1633,8 +1651,17 @@ GWCONFIG
             print_info "Configuring Gateway in 'funnel' mode (public internet)..."
 
             if [ "$NON_INTERACTIVE" = false ]; then
-                ensure_gum || true
-                gw_password=$(gum_tty input --password --placeholder "Shared password for Gateway access") || gw_password=""
+                ensure_gum 2>/dev/null || true
+                if [ "$USE_GUM" = true ]; then
+                    gw_password=$(gum_tty input --password --placeholder "Shared password for Gateway access") || gw_password=""
+                else
+                    if [ -r "$TTY_DEV" ]; then
+                        read -rs -p "Enter a shared password for Gateway access: " gw_password <"$TTY_DEV"
+                    else
+                        read -rs -p "Enter a shared password for Gateway access: " gw_password
+                    fi
+                    echo ""
+                fi
                 if [ -z "$gw_password" ]; then
                     print_warning "No password provided - funnel mode requires a password"
                     print_warning "Falling back to 'off' mode. Configure manually later."
@@ -1881,8 +1908,17 @@ NODEINSTALL
     print_warning "You will need an Anthropic API key"
 
     if [ "$NON_INTERACTIVE" = false ]; then
-        ensure_gum || true
-        CLAUDE_API_KEY=$(gum_tty input --password --placeholder "Anthropic API key (Enter to skip)") || CLAUDE_API_KEY=""
+        ensure_gum 2>/dev/null || true
+        if [ "$USE_GUM" = true ]; then
+            CLAUDE_API_KEY=$(gum_tty input --password --placeholder "Anthropic API key (Enter to skip)") || CLAUDE_API_KEY=""
+        else
+            if [ -r "$TTY_DEV" ]; then
+                read -rs -p "Enter Anthropic API key for Claude Code (or press Enter to skip): " CLAUDE_API_KEY <"$TTY_DEV"
+            else
+                read -rs -p "Enter Anthropic API key for Claude Code (or press Enter to skip): " CLAUDE_API_KEY
+            fi
+            echo ""
+        fi
 
         if [ -n "$CLAUDE_API_KEY" ]; then
             su - "$OPENCLAW_USER" << CLAUDEINSTALL
@@ -2327,25 +2363,25 @@ EOF
     select_hardening_steps
 
     # Main hardening sequence
-    should_run_step "System Updates" && configure_system_updates
-    should_run_step "Firewall (UFW)" && configure_firewall
-    should_run_step "Intrusion Prevention (fail2ban)" && configure_fail2ban
-    should_run_step "User Account Creation" && configure_users
-    should_run_step "SSH Hardening" && configure_ssh
-    should_run_step "Install Security Tools" && install_security_tools
-    should_run_step "AIDE Configuration" && configure_aide
-    should_run_step "rkhunter Configuration" && configure_rkhunter
-    should_run_step "auditd Configuration" && configure_auditd
-    should_run_step "Lynis Audit" && configure_lynis
-    should_run_step "Attack Surface Minimization" && minimize_attack_surface
-    should_run_step "Logging & Monitoring" && configure_logging
-    should_run_step "File System Permissions" && configure_file_permissions
-    should_run_step "Automated Scanning Scripts" && create_security_scan_script
-    should_run_step "Cron Jobs" && setup_cron_jobs
+    if should_run_step "System Updates"; then configure_system_updates; fi
+    if should_run_step "Firewall (UFW)"; then configure_firewall; fi
+    if should_run_step "Intrusion Prevention (fail2ban)"; then configure_fail2ban; fi
+    if should_run_step "User Account Creation"; then configure_users; fi
+    if should_run_step "SSH Hardening"; then configure_ssh; fi
+    if should_run_step "Install Security Tools"; then install_security_tools; fi
+    if should_run_step "AIDE Configuration"; then configure_aide; fi
+    if should_run_step "rkhunter Configuration"; then configure_rkhunter; fi
+    if should_run_step "auditd Configuration"; then configure_auditd; fi
+    if should_run_step "Lynis Audit"; then configure_lynis; fi
+    if should_run_step "Attack Surface Minimization"; then minimize_attack_surface; fi
+    if should_run_step "Logging & Monitoring"; then configure_logging; fi
+    if should_run_step "File System Permissions"; then configure_file_permissions; fi
+    if should_run_step "Automated Scanning Scripts"; then create_security_scan_script; fi
+    if should_run_step "Cron Jobs"; then setup_cron_jobs; fi
 
     # Optional components
-    should_run_step "Tailscale (optional)" && install_tailscale
-    should_run_step "OpenClaw (optional)" && install_openclaw
+    if should_run_step "Tailscale (optional)"; then install_tailscale; fi
+    if should_run_step "OpenClaw (optional)"; then install_openclaw; fi
 
     # Documentation and summary
     create_documentation
