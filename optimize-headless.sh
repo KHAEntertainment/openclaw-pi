@@ -140,7 +140,48 @@ ensure_gum() {
     fi
 
     echo "Installing gum v${version} (${os}/${arch})..."
+    
+    # Download checksums file for verification
+    local checksums_url="${base}/checksums.txt"
+    curl -fsSL "$checksums_url" -o "${tmp}/checksums.txt"
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to download checksums file from ${checksums_url}" >&2
+        return 1
+    fi
+    
+    # Extract the expected checksum for our asset
+    local asset_name
+    asset_name="$(basename "$url")"
+    local expected_checksum
+    expected_checksum="$(grep "${asset_name}\$" "${tmp}/checksums.txt" | awk '{print $1}')"
+    
+    if [ -z "$expected_checksum" ]; then
+        echo "ERROR: No checksum found for ${asset_name} in checksums.txt" >&2
+        return 1
+    fi
+    
+    # Download the gum archive
     curl -fsSL "$url" -o "${tmp}/gum.tar.gz"
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Failed to download ${url}" >&2
+        return 1
+    fi
+    
+    # Verify SHA256 checksum
+    if command -v sha256sum &>/dev/null; then
+        local actual_checksum
+        actual_checksum="$(sha256sum "${tmp}/gum.tar.gz" | awk '{print $1}')"
+        if [ "$actual_checksum" != "$expected_checksum" ]; then
+            echo "ERROR: SHA256 checksum mismatch for ${asset_name}" >&2
+            echo "  Expected: ${expected_checksum}" >&2
+            echo "  Actual:   ${actual_checksum}" >&2
+            return 1
+        fi
+        echo "✓ SHA256 checksum verified: ${expected_checksum}"
+    else
+        echo "WARNING: sha256sum not available, skipping checksum verification" >&2
+    fi
+    
     tar -xzf "${tmp}/gum.tar.gz" -C "$tmp"
 
     local gum_path
