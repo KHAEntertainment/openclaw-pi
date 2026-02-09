@@ -92,89 +92,11 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
-# Gum (TUI) configuration
-GUM_VERSION_DEFAULT="0.17.0"
-GUM_VERSION="${GUM_VERSION:-$GUM_VERSION_DEFAULT}"
-TTY_DEV="/dev/tty"
-USE_GUM=false
-
 ###############################################################################
 # Helper Functions
 ###############################################################################
 
-ensure_gum() {
-    if command -v gum &>/dev/null; then
-        USE_GUM=true
-        return 0
-    fi
-
-    local version="$GUM_VERSION"
-    local os arch tmp base url
-    os="$(uname -s)"
-    arch="$(uname -m)"
-
-    tmp="$(mktemp -d)"
-    # shellcheck disable=SC2064
-    trap "rm -rf '$tmp'" RETURN
-
-    base="https://github.com/charmbracelet/gum/releases/download/v${version}"
-
-    # Try a few common arch variants.
-    local candidates=(
-        "gum_${version}_${os}_${arch}.tar.gz"
-    )
-
-    case "$arch" in
-        aarch64) candidates+=("gum_${version}_${os}_arm64.tar.gz") ;;
-        armv7l) candidates+=("gum_${version}_${os}_armv7.tar.gz") ;;
-        x86_64) candidates+=("gum_${version}_${os}_amd64.tar.gz") ;;
-    esac
-
-    url=""
-    for asset in "${candidates[@]}"; do
-        if curl -fsSLI "${base}/${asset}" &>/dev/null; then
-            url="${base}/${asset}"
-            break
-        fi
-    done
-
-    if [ -z "$url" ]; then
-        echo "ERROR: Could not find a gum release asset for ${os}/${arch} (gum v${version})." >&2
-        echo "Tried: ${candidates[*]}" >&2
-        return 1
-    fi
-
-    echo "Installing gum v${version} (${os}/${arch})..."
-    curl -fsSL "$url" -o "${tmp}/gum.tar.gz"
-    tar -xzf "${tmp}/gum.tar.gz" -C "$tmp"
-
-    local gum_path
-    gum_path="$(find "$tmp" -type f -name gum -perm -111 2>/dev/null | head -n 1)"
-    if [ -z "$gum_path" ]; then
-        echo "ERROR: gum binary not found after extracting ${url}" >&2
-        return 1
-    fi
-
-    install -m 0755 "$gum_path" /usr/local/bin/gum
-    USE_GUM=true
-}
-
-gum_tty() {
-    # Make gum work when the script is piped (e.g. curl | sudo bash) by reading input from /dev/tty.
-    if [ -r "$TTY_DEV" ]; then
-        gum "$@" <"$TTY_DEV"
-    else
-        gum "$@"
-    fi
-}
-
 print_header() {
-    if [ "$USE_GUM" = true ] && [ "$NON_INTERACTIVE" = false ]; then
-        gum_tty style --border double --bold --padding "0 2" "$1"
-        echo ""
-        return 0
-    fi
-
     echo -e "\n${BLUE}═══════════════════════════════════════════════════════════════${NC}"
     echo -e "${BLUE}  $1${NC}"
     echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}\n"
@@ -209,92 +131,25 @@ confirm() {
         return 0
     fi
 
-    ensure_gum
-
     local prompt="$1"
     local default="${2:-n}"
-    local default_flag="--default=false"
 
     if [ "$default" = "y" ]; then
-        default_flag="--default=true"
+        prompt="$prompt [Y/n]: "
+    else
+        prompt="$prompt [y/N]: "
     fi
 
-    gum_tty confirm $default_flag "$prompt"
-}
-
-RUN_ALL_STEPS=true
-declare -A RUN_STEPS
-
-select_hardening_steps() {
-    if [ "$NON_INTERACTIVE" = true ]; then
-        RUN_ALL_STEPS=true
-        return 0
-    fi
-
-    ensure_gum
-
-    print_header "Step Selection"
-    print_info "You can run the full hardening wizard, or select specific steps."
-    echo ""
-
-    local mode
-    mode=$(gum_tty choose --header "Choose mode" \
-        "Run all steps (recommended)" \
-        "Select steps (advanced)") || mode="Run all steps (recommended)"
-
-    if [ "$mode" = "Run all steps (recommended)" ]; then
-        RUN_ALL_STEPS=true
-        return 0
-    fi
-
-    RUN_ALL_STEPS=false
-    unset RUN_STEPS
-    declare -A RUN_STEPS
-
-    local options=(
-        "System Updates"
-        "Firewall (UFW)"
-        "Intrusion Prevention (fail2ban)"
-        "User Account Creation"
-        "SSH Hardening"
-        "Install Security Tools"
-        "AIDE Configuration"
-        "rkhunter Configuration"
-        "auditd Configuration"
-        "Lynis Audit"
-        "Attack Surface Minimization"
-        "Logging & Monitoring"
-        "File System Permissions"
-        "Automated Scanning Scripts"
-        "Cron Jobs"
-        "Tailscale (optional)"
-        "OpenClaw (optional)"
-    )
-
-    local selected=""
-    while [ -z "$selected" ]; do
-        selected=$(gum_tty choose --no-limit --header "Select steps (space to toggle, enter to confirm)" "${options[@]}") || selected=""
-
-        if [ -z "$selected" ]; then
-            print_warning "No steps selected."
-            if ! gum_tty confirm --default=true "Select again?"; then
-                RUN_ALL_STEPS=true
-                return 0
-            fi
-        fi
+    while true; do
+        read -rp "$prompt" response
+        response=${response:-$default}
+        case "$response" in
+            [Yy]*) return 0 ;;
+            [Nn]*) return 1 ;;
+            *) echo "Please answer yes or no." ;;
+        esac
     done
-
-    while IFS= read -r line; do
-        [ -n "$line" ] && RUN_STEPS["$line"]=true
-    done <<< "$selected"
 }
-
-should_run_step() {
-    local key="$1"
-    [ "$RUN_ALL_STEPS" = true ] && return 0
-    [ "${RUN_STEPS[$key]:-}" = true ]
-}
-
 
 check_root() {
     if [ "$EUID" -ne 0 ]; then
@@ -444,22 +299,25 @@ run_with_progress() {
     fi
 
     if [ "$NON_INTERACTIVE" = false ]; then
-        ensure_gum || return 1
+        echo ""
+        echo "Options:"
+        echo "  1) Run now (recommended)"
+        echo "  2) Skip and run manually later"
+        echo ""
+        read -rp "Choose [1-2]: " choice
 
-        local choice
-        choice=$(gum_tty choose --header "Long operation" \
-            "Run now (recommended)" \
-            "Skip and run manually later") || choice="Run now (recommended)"
-
-        if [ "$choice" = "Skip and run manually later" ]; then
-            print_skip "Skipping - will run manually later"
-            if [ -n "$skip_message" ]; then
-                print_info "$skip_message"
-            fi
-            return 1
-        fi
-
-        print_info "Starting process..."
+        case "$choice" in
+            2)
+                print_skip "Skipping - will run manually later"
+                if [ -n "$skip_message" ]; then
+                    print_info "$skip_message"
+                fi
+                return 1
+                ;;
+            *)
+                print_info "Starting process..."
+                ;;
+        esac
     fi
 
     # Run command in background
@@ -1535,19 +1393,13 @@ install_tailscale() {
     local gw_password=""
 
     if [ "$NON_INTERACTIVE" = false ]; then
-        ensure_gum || true
-
-        local gw_mode
-        gw_mode=$(gum_tty choose --header "Configure OpenClaw Gateway mode?" \
-            "serve  - Tailnet-only access (recommended)" \
-            "funnel - Public internet access (password)" \
-            "off    - Skip (default)") || gw_mode="off    - Skip (default)"
-
-        case "$gw_mode" in
-            serve*) gateway_choice="1" ;;
-            funnel*) gateway_choice="2" ;;
-            *) gateway_choice="3" ;;
-        esac
+        echo "Configure OpenClaw Gateway mode?"
+        echo "  1) serve  - Tailnet-only access (recommended for personal use)"
+        echo "  2) funnel - Public internet access (requires shared password)"
+        echo "  3) off    - Skip Gateway integration (default)"
+        echo ""
+        read -rp "Choose mode [1/2/3] (default: 3): " gateway_choice
+        gateway_choice=${gateway_choice:-3}
     fi
 
     case "$gateway_choice" in
@@ -1614,8 +1466,8 @@ GWCONFIG
             print_info "Configuring Gateway in 'funnel' mode (public internet)..."
 
             if [ "$NON_INTERACTIVE" = false ]; then
-                ensure_gum || true
-                gw_password=$(gum_tty input --password --placeholder "Shared password for Gateway access") || gw_password=""
+                read -rsp "Enter a shared password for Gateway access: " gw_password
+                echo  # newline after silent read
                 if [ -z "$gw_password" ]; then
                     print_warning "No password provided - funnel mode requires a password"
                     print_warning "Falling back to 'off' mode. Configure manually later."
@@ -1862,8 +1714,8 @@ NODEINSTALL
     print_warning "You will need an Anthropic API key"
 
     if [ "$NON_INTERACTIVE" = false ]; then
-        ensure_gum || true
-        CLAUDE_API_KEY=$(gum_tty input --password --placeholder "Anthropic API key (Enter to skip)") || CLAUDE_API_KEY=""
+        read -rsp "Enter Anthropic API key for Claude Code (or press Enter to skip): " CLAUDE_API_KEY
+        echo  # newline after silent input
 
         if [ -n "$CLAUDE_API_KEY" ]; then
             su - "$OPENCLAW_USER" << CLAUDEINSTALL
@@ -2256,9 +2108,6 @@ EOF
 ###############################################################################
 
 main() {
-    check_root
-    ensure_gum
-
     clear
 
     print_header "OpenClaw Raspberry Pi - Complete Security Hardening v$SCRIPT_VERSION"
@@ -2297,34 +2146,32 @@ EOF
     fi
 
     # Pre-flight checks
+    check_root
     check_os
     check_version
     check_disk_space
     detect_desktop_environment
 
-    # Step selection
-    select_hardening_steps
-
     # Main hardening sequence
-    should_run_step "System Updates" && configure_system_updates
-    should_run_step "Firewall (UFW)" && configure_firewall
-    should_run_step "Intrusion Prevention (fail2ban)" && configure_fail2ban
-    should_run_step "User Account Creation" && configure_users
-    should_run_step "SSH Hardening" && configure_ssh
-    should_run_step "Install Security Tools" && install_security_tools
-    should_run_step "AIDE Configuration" && configure_aide
-    should_run_step "rkhunter Configuration" && configure_rkhunter
-    should_run_step "auditd Configuration" && configure_auditd
-    should_run_step "Lynis Audit" && configure_lynis
-    should_run_step "Attack Surface Minimization" && minimize_attack_surface
-    should_run_step "Logging & Monitoring" && configure_logging
-    should_run_step "File System Permissions" && configure_file_permissions
-    should_run_step "Automated Scanning Scripts" && create_security_scan_script
-    should_run_step "Cron Jobs" && setup_cron_jobs
+    configure_system_updates
+    configure_firewall
+    configure_fail2ban
+    configure_users
+    configure_ssh
+    install_security_tools
+    configure_aide
+    configure_rkhunter
+    configure_auditd
+    configure_lynis
+    minimize_attack_surface
+    configure_logging
+    configure_file_permissions
+    create_security_scan_script
+    setup_cron_jobs
 
     # Optional components
-    should_run_step "Tailscale (optional)" && install_tailscale
-    should_run_step "OpenClaw (optional)" && install_openclaw
+    install_tailscale
+    install_openclaw
 
     # Documentation and summary
     create_documentation
