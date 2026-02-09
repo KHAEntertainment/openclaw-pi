@@ -143,8 +143,7 @@ ensure_gum() {
     
     # Download checksums file for verification
     local checksums_url="${base}/checksums.txt"
-    curl -fsSL "$checksums_url" -o "${tmp}/checksums.txt"
-    if [ $? -ne 0 ]; then
+    if ! curl -fsSL "$checksums_url" -o "${tmp}/checksums.txt"; then
         echo "ERROR: Failed to download checksums file from ${checksums_url}" >&2
         return 1
     fi
@@ -153,7 +152,7 @@ ensure_gum() {
     local asset_name
     asset_name="$(basename "$url")"
     local expected_checksum
-    expected_checksum="$(grep "${asset_name}\$" "${tmp}/checksums.txt" | awk '{print $1}')"
+    expected_checksum="$(grep "${asset_name}$" "${tmp}/checksums.txt" | awk '{print $1}')"
     
     if [ -z "$expected_checksum" ]; then
         echo "ERROR: No checksum found for ${asset_name} in checksums.txt" >&2
@@ -161,8 +160,7 @@ ensure_gum() {
     fi
     
     # Download the gum archive
-    curl -fsSL "$url" -o "${tmp}/gum.tar.gz"
-    if [ $? -ne 0 ]; then
+    if ! curl -fsSL "$url" -o "${tmp}/gum.tar.gz"; then
         echo "ERROR: Failed to download ${url}" >&2
         return 1
     fi
