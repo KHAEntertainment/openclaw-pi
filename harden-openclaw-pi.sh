@@ -160,6 +160,8 @@ ensure_gum() {
 
     if ! echo "${expected_sha}  ${tmp}/gum.tar.gz" | sha256sum -c - >/dev/null 2>&1; then
         echo "ERROR: SHA256 mismatch for downloaded gum archive" >&2
+        echo "This could indicate file corruption or a supply-chain security issue." >&2
+        echo "Please retry the installation or report this at https://github.com/KHAEntertainment/openclaw-pi/issues" >&2
         rm -rf "$tmp"
         return 1
     fi
