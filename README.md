@@ -344,6 +344,26 @@ If you use OAuth-based coding plans (e.g., Claude Pro/Max, ChatGPT Plus/Pro) and
 
 > **Note:** CLIProxyAPI is a third-party community tool. Review its documentation and security implications before deploying in your environment.
 
+### **Claude Code Session Persistence** *(Future OpenClaw Skill)*
+
+Once OpenClaw is installed, a future skill will provide automatic session persistence
+for Claude Code, keeping your AI sessions alive across SSH disconnects using
+`loginctl enable-linger` and systemd user services. Until then, you can manually verify
+lingering is active:
+
+```bash
+# Already configured by the hardening script:
+loginctl enable-linger openclaw
+
+# Verify:
+loginctl show-user openclaw | grep Linger
+# Linger=yes
+```
+
+> **Why this matters:** Without lingering enabled, user systemd services (including
+> OpenClaw Gateway) terminate when the SSH session disconnects. The hardening script
+> enables this automatically during user creation.
+
 ---
 
 ## 🔧 Common Tasks
@@ -594,19 +614,58 @@ User Device
 
 ---
 
+## 🖥️ Headless Optimization
+
+If you installed **Raspberry Pi OS Desktop** instead of Lite, the hardening script will automatically detect the desktop environment and offer to optimize your system for headless operation.
+
+You can also run the optimizer separately:
+
+```bash
+sudo ./optimize-headless.sh [--simulate] [--non-interactive]
+```
+
+**Options:**
+| Flag | Description |
+|------|-------------|
+| `--simulate` | Preview changes without applying them |
+| `--non-interactive` | Run without prompts (defaults to disable-only) |
+
+**What it does:**
+- **Disable only (reversible)**: Switches to multi-user target, keeps desktop installed
+  - Re-enable anytime: `sudo systemctl set-default graphical.target && sudo reboot`
+- **Remove entirely**: Purges desktop packages, office suite, games — saves ~1GB+ disk
+  - Chromium is always preserved (required by OpenClaw for browser automation)
+
+**Phases:**
+1. Safety & baseline recording
+2. Desktop mode decision (disable vs remove)
+3. Remove bloat packages (LibreOffice, games, media players)
+4. Disable unnecessary services (display managers, colord, etc.)
+5. Desktop plumbing removal (only in "remove" mode)
+6. Housekeeping (autoremove, cache cleanup, journal vacuum)
+7. Verification & before/after comparison
+
+---
+
 ## 🗺️ Roadmap
 
-### **Version 2.4 (Current)**
+### **Version 2.5 (Current)**
+- [x] **Headless optimization**: Desktop-to-headless conversion utility (`optimize-headless.sh`)
+- [x] **Automatic desktop detection**: Main script detects and offers cleanup
+- [x] **Chromium safety gate**: Browser always preserved for OpenClaw automation
+- [x] **Disable vs remove modes**: Reversible disable or full purge of desktop packages
+
+### **Version 2.4**
 - [x] **Homebrew (Linuxbrew)**: Automatic installation for OpenClaw plugin support
 - [x] **User session environment**: DBUS/XDG_RUNTIME_DIR setup for OpenClaw Gateway service
 - [x] **OpenClaw Gateway Tailscale integration**: Native serve/funnel/off mode configuration
 - [x] **Developer tools guidance**: CLIProxyAPI and AI coding tool recommendations
+
+### **Version 3.0 (Future)**
 - [ ] **Multi-distro support**: Detect and adapt to Ubuntu, Debian, etc.
 - [ ] **Docker deployment option**: Container-based installation
 - [ ] **Backup/restore automation**: Easy system snapshots
 - [ ] **Email notifications**: Alert on security scan failures
-
-### **Version 3.0 (Future)**
 - [ ] **Full TUI installer**: Interactive ncurses-based interface using `dialog` or `whiptail`
 - [ ] **Tmux integration**: Built-in terminal multiplexer support
 - [ ] **Configuration profiles**: Quick-select security levels (minimal, standard, paranoid)
@@ -715,8 +774,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 | Metric | Value |
 |--------|-------|
-| Script Version | 2.4 |
-| Lines of Code | ~2160 |
+| Script Version | 2.5 |
+| Lines of Code | ~2960 |
 | Security Components | 10+ |
 | Supported Pi Models | 4, 5, CM4 |
 | Installation Time | 15-45 min |

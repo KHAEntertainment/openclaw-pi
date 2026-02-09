@@ -22,3 +22,4 @@ jobs:
         run: |
           bash -n harden-openclaw-pi.sh
           bash -n install.sh
+          bash -n optimize-headless.sh

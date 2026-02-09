@@ -6,6 +6,7 @@ set -e
 
 REPO_URL="https://raw.githubusercontent.com/KHAEntertainment/openclaw-pi/main"
 SCRIPT_NAME="harden-openclaw-pi.sh"
+HELPER_SCRIPT="optimize-headless.sh"
 INSTALL_DIR="/tmp/openclaw-pi-install"
 
 # Verify root
@@ -23,7 +24,8 @@ echo ""
 echo "Downloading hardening script..."
 mkdir -p "$INSTALL_DIR"
 curl -fsSL "$REPO_URL/$SCRIPT_NAME" -o "$INSTALL_DIR/$SCRIPT_NAME"
-chmod +x "$INSTALL_DIR/$SCRIPT_NAME"
+curl -fsSL "$REPO_URL/$HELPER_SCRIPT" -o "$INSTALL_DIR/$HELPER_SCRIPT"
+chmod +x "$INSTALL_DIR/$SCRIPT_NAME" "$INSTALL_DIR/$HELPER_SCRIPT"
 
 # Verify download
 if [ ! -s "$INSTALL_DIR/$SCRIPT_NAME" ]; then

@@ -3,11 +3,11 @@
 ###############################################################################
 # OpenClaw Raspberry Pi - Complete Security Hardening Script
 #
-# Version: 2.4
-# Changes from 2.3:
-#  - Homebrew (Linuxbrew) installation for OpenClaw plugin support
-#  - Optional confirm prompt with non-interactive support
-#  - Brew PATH configuration in openclaw user's .bashrc
+# Version: 2.5
+# Changes from 2.4:
+#  - Headless optimization utility (optimize-headless.sh)
+#  - Desktop environment auto-detection with cleanup offer
+#  - Chromium safety gate (always preserved for OpenClaw)
 #
 # This script performs comprehensive security hardening for Raspberry Pi
 # systems running OpenClaw. It can be run on fresh installations or existing
@@ -19,13 +19,13 @@
 #
 # Author: Community Contribution
 # License: MIT
-# Version: 2.4
+# Version: 2.5
 ###############################################################################
 
 set -e  # Exit on error
 
 # Script configuration
-SCRIPT_VERSION="2.4"
+SCRIPT_VERSION="2.5"
 VERSION_FILE="/etc/openclaw-hardening-version"
 OPENCLAW_USER="openclaw"
 LOGFILE="/var/log/openclaw-hardening-$(date +%Y%m%d-%H%M%S).log"
@@ -56,7 +56,7 @@ for arg in "$@"; do
             ;;
         --help|-h)
             cat << 'HELPEOF'
-OpenClaw Raspberry Pi Security Hardening Script v2.4
+OpenClaw Raspberry Pi Security Hardening Script v2.5
 
 Usage: sudo ./harden-openclaw-pi.sh [OPTIONS]
 
@@ -219,6 +219,35 @@ check_disk_space() {
         exit 1
     fi
     print_info "Available disk space: ${available_mb}MB"
+}
+
+detect_desktop_environment() {
+    # Check for common desktop environment packages
+    if dpkg -l 2>/dev/null | grep -qE "^ii.*(lxde-common|lightdm|xfce4|gnome-shell|desktop-base)"; then
+        print_warning "Desktop environment detected"
+        print_info "This Pi is running a desktop OS — headless mode is recommended for OpenClaw"
+        print_info "The headless optimization utility can remove ~1GB+ of unnecessary packages"
+
+        if confirm "Run headless optimization utility?"; then
+            local optimizer="/tmp/openclaw-pi-install/optimize-headless.sh"
+            if [ -f "$optimizer" ]; then
+                bash "$optimizer"
+            else
+                # Try downloading if not bundled
+                local url="https://raw.githubusercontent.com/KHAEntertainment/openclaw-pi/main/optimize-headless.sh"
+                if curl -fsSL "$url" -o /tmp/optimize-headless.sh 2>/dev/null; then
+                    chmod +x /tmp/optimize-headless.sh
+                    bash /tmp/optimize-headless.sh
+                    rm -f /tmp/optimize-headless.sh
+                else
+                    print_warning "Could not download headless optimizer"
+                    print_info "You can run it manually later: sudo ./optimize-headless.sh"
+                fi
+            fi
+        else
+            print_skip "Skipping headless optimization"
+        fi
+    fi
 }
 
 save_version() {
@@ -567,7 +596,7 @@ configure_ssh() {
     print_info "Writing SSH hardening configuration..."
 
     cat > "$hardening_conf" << 'EOF'
-# OpenClaw Pi SSH Hardening - v2.4
+# OpenClaw Pi SSH Hardening - v2.5
 # Applied by harden-openclaw-pi.sh
 
 # Disable root login
@@ -1988,7 +2017,7 @@ display_summary() {
     +-----------------------------------------------------------+
     |                                                           |
     |   OpenClaw Raspberry Pi Security Hardening Complete!      |
-    |                Version 2.4                                |
+    |                Version 2.5                                |
     |                                                           |
     +-----------------------------------------------------------+
 EOF
@@ -2086,11 +2115,11 @@ main() {
     cat << 'EOF'
 This script performs comprehensive security hardening with:
 
-NEW IN v2.4:
-  - Homebrew (Linuxbrew) for OpenClaw plugin support
-  - OpenClaw Gateway Tailscale integration (serve/funnel/off)
-  - User session environment (DBUS/XDG) for Gateway
-  - Developer tools & API proxy guidance
+NEW IN v2.5:
+  - Headless optimization utility (Desktop → lean server)
+  - Automatic desktop environment detection
+  - Chromium safety gate (preserved for OpenClaw)
+  - Homebrew, Tailscale Gateway, DBUS/XDG setup
   - Version tracking and upgrade detection
 
 Hardening Steps:
@@ -2121,6 +2150,7 @@ EOF
     check_os
     check_version
     check_disk_space
+    detect_desktop_environment
 
     # Main hardening sequence
     configure_system_updates

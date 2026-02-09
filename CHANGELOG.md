@@ -4,6 +4,22 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [2.5.0] - 2025-02-08
+
+### Added
+- Headless optimization helper script (`optimize-headless.sh`)
+- Desktop environment auto-detection in main hardening script
+- Disable-only (reversible) and full-remove desktop modes
+- Simulate mode (`--simulate`) for previewing headless changes
+- Chromium safety gate (never removed, needed by OpenClaw)
+- Headless Optimization section in README
+- Claude Code Linger Monitor reference in README
+
+### Changed
+- `install.sh` now downloads `optimize-headless.sh` alongside main script
+- CI workflow validates new script syntax
+- Roadmap updated for v2.5 features
+
 ## [2.4.0] - 2025-02-07
 
 ### Added
