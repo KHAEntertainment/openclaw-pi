@@ -106,7 +106,7 @@ OpenClaw executes code and interacts with external services. For security, deplo
 3. Allow only necessary traffic (SSH, OpenClaw Gateway port)
 
 **Not sure how? Ask Claude or ChatGPT:**
-```
+```text
 Prompt: "How do I set up a guest network on [YOUR ROUTER MODEL] 
 to isolate a Raspberry Pi from my main network?"
 ```
@@ -182,6 +182,7 @@ sudo ./harden-openclaw-pi.sh --skip-long-ops
 ## 📦 What Gets Installed
 
 ### **System Hardening**
+
 | Component | Purpose | Configuration |
 |-----------|---------|---------------|
 | `unattended-upgrades` | Automatic security updates | Daily, auto-reboot at 3 AM if needed |
@@ -189,7 +190,9 @@ sudo ./harden-openclaw-pi.sh --skip-long-ops
 | `fail2ban` | Intrusion prevention | 3 failed SSH attempts = 1 hour ban |
 | SSH hardening | Secure remote access | No root login, modern crypto only |
 
+
 ### **Security Monitoring**
+
 | Tool | Function | Schedule |
 |------|----------|----------|
 | `AIDE` | File integrity monitoring | Daily checks at 2 AM |
@@ -197,6 +200,7 @@ sudo ./harden-openclaw-pi.sh --skip-long-ops
 | `chkrootkit` | Additional rootkit scanning | Daily scans |
 | `auditd` | System call auditing | Real-time monitoring |
 | `Lynis` | Security auditing | On-demand |
+
 
 ### **User Accounts**
 - **`openclaw`** user created (no sudo access)
@@ -215,12 +219,14 @@ sudo ./harden-openclaw-pi.sh --skip-long-ops
 - **Ongoing**: Automatic security update installation
 
 ### **Optional Components**
+
 | Component | Purpose | When |
 |-----------|---------|------|
 | Tailscale | Encrypted remote access | Optional during install |
 | Node.js 22+ | Runtime for OpenClaw | Optional during install |
 | Claude Code CLI | Coding assistance | Optional during install |
 | OpenClaw | AI agent framework | Optional during install |
+
 
 ---
 
@@ -329,6 +335,7 @@ During installation, the script will offer to configure your preferred Gateway m
 
 OpenClaw works alongside modern AI-powered coding tools. Consider installing these on your Pi or a connected machine:
 
+
 | Tool | Description |
 |------|-------------|
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | Anthropic's CLI coding assistant |
@@ -341,7 +348,7 @@ If you use OAuth-based coding plans (e.g., Claude Pro/Max, ChatGPT Plus/Pro) and
 
 - **Multi-account load balancing** — Pool multiple OAuth sessions behind one endpoint
 - **No direct API key management** — Uses your existing OAuth-based subscriptions
-- **Unified API interface** — Compatible with OpenAI-format API calls
+- **Unified API** — Compatible with OpenAI-format API calls
 - **Controlled access** — Proxy manages rate limits and session rotation
 
 ```bash
@@ -528,7 +535,7 @@ npm link
 
 ### **Security Layers**
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                    Internet                             │
 └────────────────────┬────────────────────────────────────┘
@@ -564,7 +571,7 @@ npm link
 
 ### **File System Layout**
 
-```
+```text
 /home/openclaw/
 ├── .openclaw/
 │   ├── openclaw.json          (600) - Config file
@@ -596,7 +603,7 @@ npm link
 
 ### **Network Flow**
 
-```
+```text
 User Device
     │
     ├─[Option A]─→ Raspberry Pi Connect (HTTPS)
@@ -632,6 +639,7 @@ sudo ./optimize-headless.sh [--simulate] [--non-interactive]
 ```
 
 **Options:**
+
 | Flag | Description |
 |------|-------------|
 | `--simulate` | Preview changes without applying them |
@@ -708,7 +716,7 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 **How to Contribute:**
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
+3. Commit your changes (`git commit -m 'Add notable feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 

@@ -9,6 +9,8 @@ SCRIPT_NAME="harden-openclaw-pi.sh"
 HELPER_SCRIPT="optimize-headless.sh"
 INSTALL_DIR="/tmp/openclaw-pi-install"
 
+NON_INTERACTIVE=false
+
 GUM_VERSION_DEFAULT="0.17.0"
 GUM_VERSION="${GUM_VERSION:-$GUM_VERSION_DEFAULT}"
 
@@ -18,11 +20,19 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+for arg in "$@"; do
+    case "$arg" in
+        --non-interactive)
+            NON_INTERACTIVE=true
+            ;;
+    esac
+done
+
 ensure_gum() {
     command -v gum &>/dev/null && return 0
 
     local version="$GUM_VERSION"
-    local os arch tmp base url
+    local os arch tmp base url selected_asset
     os="$(uname -s)"
     arch="$(uname -m)"
 
@@ -41,9 +51,11 @@ ensure_gum() {
     esac
 
     url=""
+    selected_asset=""
     for asset in "${candidates[@]}"; do
         if curl -fsSLI "${base}/${asset}" &>/dev/null; then
             url="${base}/${asset}"
+            selected_asset="$asset"
             break
         fi
     done
@@ -56,6 +68,21 @@ ensure_gum() {
 
     echo "Installing gum v${version} (${os}/${arch})..."
     curl -fsSL "$url" -o "${tmp}/gum.tar.gz"
+
+    # Verify archive integrity (supply-chain hardening).
+    curl -fsSL "${base}/checksums.txt" -o "${tmp}/checksums.txt"
+    local expected_sha
+    expected_sha="$(awk -v a="$selected_asset" '$2 == a {print $1}' "${tmp}/checksums.txt" | head -n 1)"
+    if [ -z "$expected_sha" ]; then
+        echo "ERROR: Could not find SHA256 for ${selected_asset} in checksums.txt" >&2
+        return 1
+    fi
+
+    if ! echo "${expected_sha}  ${tmp}/gum.tar.gz" | sha256sum -c -; then
+        echo "ERROR: SHA256 mismatch for downloaded gum archive" >&2
+        return 1
+    fi
+
     tar -xzf "${tmp}/gum.tar.gz" -C "$tmp"
 
     local gum_path
@@ -65,7 +92,9 @@ ensure_gum() {
     install -m 0755 "$gum_path" /usr/local/bin/gum
 }
 
-ensure_gum
+if [ "$NON_INTERACTIVE" = false ]; then
+    ensure_gum
+fi
 
 echo "============================================"
 echo "  OpenClaw Pi - Security Hardening Installer"
