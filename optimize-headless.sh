@@ -202,17 +202,33 @@ confirm() {
         return 0
     fi
 
-    ensure_gum
-
     local prompt="$1"
     local default="${2:-n}"
 
-    local default_flag="--default=false"
-    if [ "$default" = "y" ]; then
-        default_flag="--default=true"
-    fi
+    # Try to use gum if available, otherwise fallback to read
+    if ensure_gum 2>/dev/null; then
+        local default_flag="--default=false"
+        if [ "$default" = "y" ]; then
+            default_flag="--default=true"
+        fi
 
-    gum_tty confirm $default_flag "$prompt"
+        gum_tty confirm $default_flag "$prompt"
+    else
+        # Fallback to plain read-based prompt
+        local answer
+        if [ "$default" = "y" ]; then
+            read -r -p "$prompt [Y/n] " answer
+            answer="${answer:-y}"
+        else
+            read -r -p "$prompt [y/N] " answer
+            answer="${answer:-n}"
+        fi
+        
+        case "${answer,,}" in
+            y|yes) return 0 ;;
+            *) return 1 ;;
+        esac
+    fi
 }
 
 check_root() {
@@ -316,12 +332,25 @@ phase_desktop_decision() {
         return
     fi
 
-    ensure_gum
-
     local choice
-    choice=$(gum_tty choose --header "Choose mode" \
-        "Disable only (reversible)" \
-        "Remove entirely") || choice="Disable only (reversible)"
+    # Try to use gum if available, otherwise fallback to read
+    if ensure_gum 2>/dev/null; then
+        choice=$(gum_tty choose --header "Choose mode" \
+            "Disable only (reversible)" \
+            "Remove entirely") || choice="Disable only (reversible)"
+    else
+        # Fallback to plain read-based prompt
+        echo "Choose mode:"
+        echo "  1) Disable only (reversible)"
+        echo "  2) Remove entirely"
+        read -r -p "Enter choice [1-2]: " choice_num
+        choice_num="${choice_num:-1}"
+        
+        case "$choice_num" in
+            2) choice="Remove entirely" ;;
+            *) choice="Disable only (reversible)" ;;
+        esac
+    fi
 
     case "$choice" in
         "Remove entirely")
