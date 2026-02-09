@@ -1,0 +1,19 @@
+#!/bin/bash
+
+###############################################################################
+# DEPRECATED BACKUP SCRIPT - DO NOT USE
+#
+# This file was a timestamped .bak copy of the OpenClaw Raspberry Pi
+# hardening script. Backup copies like this are no longer maintained and
+# are kept only as stubs to avoid confusion and repository bloat.
+#
+# Please use the canonical script instead:
+#   harden-openclaw-pi.sh
+#
+# Rely on git history for past versions rather than .bak timestamped files.
+###############################################################################
+
+echo "This backup script is deprecated and non-functional." 1>&2
+echo "Please run 'harden-openclaw-pi.sh' instead." 1>&2
+
+exit 1

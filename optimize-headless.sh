@@ -89,14 +89,113 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
+# Gum (TUI) configuration
+GUM_VERSION_DEFAULT="0.17.0"
+GUM_VERSION="${GUM_VERSION:-$GUM_VERSION_DEFAULT}"
+TTY_DEV="/dev/tty"
+USE_GUM=false
+
 ###############################################################################
 # Helper Functions
 ###############################################################################
 
+ensure_gum() {
+    if command -v gum &>/dev/null; then
+        USE_GUM=true
+        return 0
+    fi
+
+    local version="$GUM_VERSION"
+    local os arch tmp base url
+    os="$(uname -s)"
+    arch="$(uname -m)"
+
+    tmp="$(mktemp -d)"
+
+    base="https://github.com/charmbracelet/gum/releases/download/v${version}"
+
+    local candidates=(
+        "gum_${version}_${os}_${arch}.tar.gz"
+    )
+    case "$arch" in
+        aarch64) candidates+=("gum_${version}_${os}_arm64.tar.gz") ;;
+        armv7l) candidates+=("gum_${version}_${os}_armv7.tar.gz") ;;
+        x86_64) candidates+=("gum_${version}_${os}_amd64.tar.gz") ;;
+    esac
+
+    url=""
+    selected_asset=""
+    for asset in "${candidates[@]}"; do
+        if curl -fsSLI "${base}/${asset}" &>/dev/null; then
+            url="${base}/${asset}"
+            selected_asset="$asset"
+            break
+        fi
+    done
+
+    if [ -z "$url" ]; then
+        echo "ERROR: Could not find a gum release asset for ${os}/${arch} (gum v${version})." >&2
+        echo "Tried: ${candidates[*]}" >&2
+        trap - RETURN
+        return 1
+    fi
+
+    echo "Installing gum v${version} (${os}/${arch})..."
+    curl -fsSL "$url" -o "${tmp}/gum.tar.gz"
+
+    # Verify archive integrity (supply-chain hardening).
+    curl -fsSL "${base}/checksums.txt" -o "${tmp}/checksums.txt"
+    local expected_sha
+    expected_sha="$(awk -v a="$selected_asset" '$2 == a {print $1}' "${tmp}/checksums.txt" | head -n 1)"
+    if [ -z "$expected_sha" ]; then
+        echo "ERROR: Could not find SHA256 for ${selected_asset} in checksums.txt" >&2
+        rm -rf "$tmp"
+        return 1
+    fi
+
+    if ! echo "${expected_sha}  ${tmp}/gum.tar.gz" | sha256sum -c - >/dev/null 2>&1; then
+        echo "ERROR: SHA256 mismatch for downloaded gum archive" >&2
+        echo "This could indicate file corruption or a supply-chain security issue." >&2
+        echo "Please retry the installation or report this at https://github.com/KHAEntertainment/openclaw-pi/issues" >&2
+        rm -rf "$tmp"
+        return 1
+    fi
+
+    tar -xzf "${tmp}/gum.tar.gz" -C "$tmp"
+
+    local gum_path
+    gum_path="$(find "$tmp" -type f -name gum -perm -111 2>/dev/null | head -n 1)"
+    if [ -z "$gum_path" ]; then
+        echo "ERROR: gum binary not found after extracting ${url}" >&2
+        trap - RETURN
+        return 1
+    fi
+
+    install -m 0755 "$gum_path" /usr/local/bin/gum
+    rm -rf "$tmp"
+    USE_GUM=true
+    trap - RETURN
+}
+
+gum_tty() {
+    # Make gum work when the script is piped (e.g. curl | sudo bash) by using /dev/tty for all I/O.
+    # shellcheck disable=SC2094
+    if [ -r "$TTY_DEV" ] && [ -w "$TTY_DEV" ]; then
+        gum "$@" <"$TTY_DEV" >"$TTY_DEV" 2>"$TTY_DEV"
+    else
+        gum "$@"
+    fi
+}
+
 print_header() {
-    echo -e "\n${BLUE}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${BLUE}  $1${NC}"
-    echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}\n"
+    if [ "$USE_GUM" = true ] && [ "$NON_INTERACTIVE" = false ]; then
+        gum_tty style --border double --bold --padding "0 2" "$1"
+        echo ""
+    else
+        echo -e "\n${BLUE}═══════════════════════════════════════════════════════════════${NC}"
+        echo -e "${BLUE}  $1${NC}"
+        echo -e "${BLUE}═══════════════════════════════════════════════════════════════${NC}\n"
+    fi
 }
 
 print_success() {
@@ -131,6 +230,18 @@ confirm() {
     local prompt="$1"
     local default="${2:-n}"
 
+    # Try to use gum if available, but fall back to read-based prompt if it fails
+    if ensure_gum 2>/dev/null; then
+        local default_flag="--default=false"
+        if [ "$default" = "y" ]; then
+            default_flag="--default=true"
+        fi
+
+        gum_tty confirm $default_flag "$prompt"
+        return $?
+    fi
+
+    # Fallback to read-based prompt if gum is unavailable
     if [ "$default" = "y" ]; then
         prompt="$prompt [Y/n]: "
     else
@@ -249,24 +360,23 @@ phase_desktop_decision() {
         return
     fi
 
-    while true; do
-        read -rp "Choose [A]disable or [B]remove (A/B): " choice
-        case "$choice" in
-            [Aa])
-                DESKTOP_ACTION="disable"
-                print_success "Selected: Disable only (reversible)"
-                break
-                ;;
-            [Bb])
-                DESKTOP_ACTION="remove"
-                print_success "Selected: Remove entirely"
-                break
-                ;;
-            *)
-                echo "Please enter A or B."
-                ;;
-        esac
-    done
+    ensure_gum
+
+    local choice
+    choice=$(gum_tty choose --header "Choose mode" \
+        "Disable only (reversible)" \
+        "Remove entirely") || choice="Disable only (reversible)"
+
+    case "$choice" in
+        "Remove entirely")
+            DESKTOP_ACTION="remove"
+            print_success "Selected: Remove entirely"
+            ;;
+        *)
+            DESKTOP_ACTION="disable"
+            print_success "Selected: Disable only (reversible)"
+            ;;
+    esac
 
     echo ""
 
@@ -717,6 +827,10 @@ phase_verification() {
 ###############################################################################
 
 main() {
+    check_root
+    if [ "$NON_INTERACTIVE" = false ]; then
+        ensure_gum || print_warning "gum unavailable; continuing without TUI"
+    fi
     clear
 
     print_header "OpenClaw Pi - Headless Optimization v$SCRIPT_VERSION"

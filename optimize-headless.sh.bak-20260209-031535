@@ -1,0 +1,25 @@
+#!/bin/bash
+
+###############################################################################
+# Legacy wrapper for OpenClaw Pi - Headless Optimization Utility
+#
+# This file is a deprecated timestamped backup. It is intentionally kept
+# minimal and simply delegates to the canonical optimize-headless.sh script
+# located in the same directory, to avoid maintaining duplicate logic.
+#
+# Prefer invoking:
+#   sudo ./optimize-headless.sh [OPTIONS]
+###############################################################################
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TARGET_SCRIPT="${SCRIPT_DIR}/optimize-headless.sh"
+
+if [ -x "$TARGET_SCRIPT" ]; then
+    exec "$TARGET_SCRIPT" "$@"
+fi
+
+echo "Error: ${TARGET_SCRIPT} not found or not executable." >&2
+echo "Please ensure optimize-headless.sh exists and is marked as executable." >&2
+exit 1

@@ -9,11 +9,28 @@ SCRIPT_NAME="harden-openclaw-pi.sh"
 HELPER_SCRIPT="optimize-headless.sh"
 INSTALL_DIR="/tmp/openclaw-pi-install"
 
+cleanup_install_dir() {
+    rm -rf "$INSTALL_DIR"
+}
+trap cleanup_install_dir EXIT
+NON_INTERACTIVE=false
+
 # Verify root
 if [ "$EUID" -ne 0 ]; then
     echo "ERROR: This script must be run as root (use sudo)"
     exit 1
 fi
+
+# Parse arguments (NON_INTERACTIVE is passed through to the actual scripts via "$@")
+# shellcheck disable=SC2034
+for arg in "$@"; do
+    case "$arg" in
+        --non-interactive)
+            NON_INTERACTIVE=true
+            ;;
+    esac
+done
+
 
 echo "============================================"
 echo "  OpenClaw Pi - Security Hardening Installer"

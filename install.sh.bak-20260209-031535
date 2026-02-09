@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+# Legacy wrapper for the OpenClaw Pi installer.
+# This file was previously a timestamped .bak copy of the installer script.
+# To avoid maintaining a divergent backup, it now delegates to the main
+# installer if present, or instructs the user to use the official install URL.
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TARGET_INSTALLER="${SCRIPT_DIR}/install.sh"
+
+if [ -f "$TARGET_INSTALLER" ]; then
+    exec "$TARGET_INSTALLER" "$@"
+fi
+
+echo "This legacy installer wrapper is deprecated."
+echo "Please use the main installer instead:"
+echo "  curl -fsSL https://raw.githubusercontent.com/KHAEntertainment/openclaw-pi/main/install.sh | sudo bash"
+exit 1
