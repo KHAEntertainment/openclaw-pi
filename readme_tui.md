@@ -5,8 +5,8 @@
 Comprehensive, automated security hardening script for running [OpenClaw](https://github.com/openclaw/openclaw) on Raspberry Pi in a secure, isolated environment. Perfect for headless AI infrastructure, personal servers, or shareable community images.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.5-blue.svg)]()
-[![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-4%2F5-red.svg)]()
+[![Version](https://img.shields.io/badge/version-2.5-blue.svg)](https://github.com/KHAEntertainment/openclaw-pi/releases)
+[![Raspberry Pi](https://img.shields.io/badge/Raspberry%20Pi-4%2F5-red.svg)](https://www.raspberrypi.com/)
 
 ---
 
