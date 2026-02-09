@@ -1,84 +1,22 @@
 #!/bin/bash
 
 ###############################################################################
-# OpenClaw Raspberry Pi - Complete Security Hardening Script
+# DEPRECATED BACKUP SCRIPT - DO NOT USE
 #
-# Version: 2.5
-# Changes from 2.4:
-#  - Headless optimization utility (optimize-headless.sh)
-#  - Desktop environment auto-detection with cleanup offer
-#  - Chromium safety gate (always preserved for OpenClaw)
+# This file was a timestamped .bak copy of the OpenClaw Raspberry Pi
+# hardening script. Backup copies like this are no longer maintained and
+# are kept only as stubs to avoid confusion and repository bloat.
 #
-# This script performs comprehensive security hardening for Raspberry Pi
-# systems running OpenClaw. It can be run on fresh installations or existing
-# systems, with smart detection of already-configured components.
+# Please use the canonical script instead:
+#   harden-openclaw-pi.sh
 #
-# Usage: curl -fsSL https://raw.githubusercontent.com/KHAEntertainment/openclaw-pi/main/install.sh | sudo bash
-#        OR
-#        sudo ./harden-openclaw-pi.sh [--non-interactive] [--skip-long-ops]
-#
-# Author: Community Contribution
-# License: MIT
-# Version: 2.5
+# Rely on git history for past versions rather than .bak timestamped files.
 ###############################################################################
 
-set -e  # Exit on error
+echo "This backup script is deprecated and non-functional." 1>&2
+echo "Please run 'harden-openclaw-pi.sh' instead." 1>&2
 
-# Script configuration
-SCRIPT_VERSION="2.5"
-VERSION_FILE="/etc/openclaw-hardening-version"
-OPENCLAW_USER="openclaw"
-LOGFILE="/var/log/openclaw-hardening-$(date +%Y%m%d-%H%M%S).log"
-NON_INTERACTIVE=false
-SKIP_LONG_OPS=false
-
-# Signal trap for clean interrupts
-cleanup() {
-    echo ""
-    echo -e "\033[1;33m⚠ Installation interrupted!\033[0m"
-    echo -e "\033[0;36mℹ The system may be partially configured.\033[0m"
-    echo -e "\033[0;36mℹ Re-run this script to complete hardening.\033[0m"
-    echo -e "\033[0;36mℹ Log file: $LOGFILE\033[0m"
-    exit 1
-}
-trap cleanup INT TERM
-
-# Parse arguments
-for arg in "$@"; do
-    case "$arg" in
-        --non-interactive)
-            NON_INTERACTIVE=true
-            shift
-            ;;
-        --skip-long-ops)
-            SKIP_LONG_OPS=true
-            shift
-            ;;
-        --help|-h)
-            cat << 'HELPEOF'
-OpenClaw Raspberry Pi Security Hardening Script v2.5
-
-Usage: sudo ./harden-openclaw-pi.sh [OPTIONS]
-
-Options:
-  --non-interactive  Run without prompts (use defaults)
-  --skip-long-ops    Skip time-consuming operations (AIDE init, etc.)
-  --help, -h         Show this help message
-
-Features:
-  - Version tracking and upgrade detection
-  - Preserves custom configurations
-  - Tailscale integration
-  - OpenClaw installer integration
-  - Comprehensive security hardening
-
-Documentation: https://github.com/KHAEntertainment/openclaw-pi
-HELPEOF
-            exit 0
-            ;;
-    esac
-done
-
+exit 1
 # Logging setup
 exec > >(tee -a "$LOGFILE")
 exec 2>&1
