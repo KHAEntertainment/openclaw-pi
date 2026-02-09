@@ -155,8 +155,9 @@ ensure_gum() {
 }
 
 gum_tty() {
-    if [ -r "$TTY_DEV" ]; then
-        gum "$@" <"$TTY_DEV"
+    # Make gum work when the script is piped (e.g. curl | sudo bash) by using /dev/tty for all I/O.
+    if [ -r "$TTY_DEV" ] && [ -w "$TTY_DEV" ]; then
+        gum "$@" <"$TTY_DEV" >"$TTY_DEV" 2>&1
     else
         gum "$@"
     fi
