@@ -68,6 +68,7 @@ ensure_gum() {
     if [ -z "$url" ]; then
         echo "ERROR: Could not find gum release asset for ${os}/${arch} (gum v${version})." >&2
         echo "Tried: ${candidates[*]}" >&2
+        trap - RETURN
         return 1
     fi
 
@@ -92,9 +93,14 @@ ensure_gum() {
 
     local gum_path
     gum_path="$(find "$tmp" -type f -name gum -perm -111 2>/dev/null | head -n 1)"
-    [ -z "$gum_path" ] && echo "ERROR: gum binary not found in archive" >&2 && return 1
+    if [ -z "$gum_path" ]; then
+        echo "ERROR: gum binary not found in archive" >&2
+        trap - RETURN
+        return 1
+    fi
 
     install -m 0755 "$gum_path" /usr/local/bin/gum
+    trap - RETURN
 }
 
 if [ "$NON_INTERACTIVE" = false ]; then
