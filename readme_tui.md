@@ -43,7 +43,7 @@ Comprehensive, automated security hardening script for running [OpenClaw](https:
 > **Note (TUI):** The scripts will auto-install [gum](https://github.com/charmbracelet/gum) (v0.17.0 by default) to `/usr/local/bin/gum` if it’s missing.
 >
 > - Override version: `GUM_VERSION=0.17.0 sudo ./harden-openclaw-pi.sh`
-> - `--non-interactive` bypasses all prompts (and therefore the TUI).
+> - `--non-interactive` bypasses all prompts and does not show TUI menus, but the gum installation/check still runs and may require network access.
 
 ### **Hardware Requirements**
 
