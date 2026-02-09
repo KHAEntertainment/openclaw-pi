@@ -9,6 +9,11 @@ SCRIPT_NAME="harden-openclaw-pi.sh"
 HELPER_SCRIPT="optimize-headless.sh"
 INSTALL_DIR="/tmp/openclaw-pi-install"
 
+cleanup_install_dir() {
+    rm -rf "$INSTALL_DIR"
+}
+trap cleanup_install_dir EXIT
+
 NON_INTERACTIVE=false
 
 # Verify root
