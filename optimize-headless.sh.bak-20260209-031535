@@ -1,82 +1,30 @@
 #!/bin/bash
 
 ###############################################################################
-# OpenClaw Pi - Headless Optimization Utility
+# Legacy wrapper for OpenClaw Pi - Headless Optimization Utility
 #
-# Version: 2.5
+# This file is a deprecated timestamped backup. It is intentionally kept
+# minimal and simply delegates to the canonical optimize-headless.sh script
+# located in the same directory, to avoid maintaining duplicate logic.
 #
-# Converts a Raspberry Pi OS Desktop installation into a lean headless server
-# optimized for running OpenClaw. Offers two modes:
-#   - Disable only (reversible): Switches boot target, keeps desktop installed
-#   - Remove entirely: Purges desktop packages for maximum disk savings
-#
-# SAFETY: Chromium is ALWAYS preserved (required by OpenClaw for browser
-# automation features).
-#
-# Usage: sudo ./optimize-headless.sh [--simulate] [--non-interactive]
-#
-# Author: Community Contribution
-# License: MIT
-# Version: 2.5
+# Prefer invoking:
+#   sudo ./optimize-headless.sh [OPTIONS]
 ###############################################################################
 
 set -e
 
-# Script configuration
-SCRIPT_VERSION="2.5"
-SIMULATE=false
-NON_INTERACTIVE=false
-LOGFILE="/var/log/openclaw-headless-$(date +%Y%m%d-%H%M%S).log"
-DESKTOP_ACTION=""
-BASELINE_DISK=""
-BASELINE_PKGS=0
-BASELINE_SVCS=0
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TARGET_SCRIPT="${SCRIPT_DIR}/optimize-headless.sh"
 
-# Signal trap for clean interrupts
-cleanup() {
-    echo ""
-    echo -e "\033[1;33m⚠ Headless optimization interrupted!\033[0m"
-    echo -e "\033[0;36mℹ The system may be partially configured.\033[0m"
-    echo -e "\033[0;36mℹ Re-run this script to complete optimization.\033[0m"
-    echo -e "\033[0;36mℹ Log file: $LOGFILE\033[0m"
-    exit 1
-}
-trap cleanup INT TERM
+if [ -x "$TARGET_SCRIPT" ]; then
+    exec "$TARGET_SCRIPT" "$@"
+fi
 
-# Parse arguments
-for arg in "$@"; do
-    case "$arg" in
-        --simulate)
-            SIMULATE=true
-            ;;
-        --non-interactive)
-            NON_INTERACTIVE=true
-            ;;
-        --help|-h)
-            cat << 'HELPEOF'
-OpenClaw Pi - Headless Optimization Utility v2.5
+echo "Error: ${TARGET_SCRIPT} not found or not executable." >&2
+echo "Please ensure optimize-headless.sh exists and is marked as executable." >&2
+exit 1
 
-Usage: sudo ./optimize-headless.sh [OPTIONS]
-
-Options:
-  --simulate         Preview all changes without applying them
-  --non-interactive  Run without prompts (defaults to disable-only mode)
-  --help, -h         Show this help message
-
-Modes:
-  Disable only:  Switches to multi-user target, keeps desktop installed
-                 Reversible with: sudo systemctl set-default graphical.target
-  Remove entirely: Purges desktop packages, saves ~1GB+ disk space
-                   Chromium is always preserved (required by OpenClaw)
-
-Documentation: https://github.com/KHAEntertainment/openclaw-pi
-HELPEOF
-            exit 0
-            ;;
-    esac
-done
-
-# Logging setup
+# (No further logic is kept here intentionally; see optimize-headless.sh.)
 exec > >(tee -a "$LOGFILE")
 exec 2>&1
 
