@@ -784,8 +784,9 @@ phase_verification() {
 
 main() {
     check_root
-    ensure_gum
-
+    if [ "$NON_INTERACTIVE" = false ]; then
+        ensure_gum || print_warning "gum unavailable; continuing without TUI"
+    fi
     clear
 
     print_header "OpenClaw Pi - Headless Optimization v$SCRIPT_VERSION"
