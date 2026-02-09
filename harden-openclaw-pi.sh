@@ -213,6 +213,7 @@ confirm() {
     local default="${2:-n}"
 
     # Try to use gum if available, but fall back to read-based prompt if it fails
+    # Suppress stderr to avoid confusing users - gum is optional and failures are expected
     if ensure_gum 2>/dev/null; then
         local default_flag="--default=false"
         if [ "$default" = "y" ]; then
