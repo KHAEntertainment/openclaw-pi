@@ -209,17 +209,33 @@ confirm() {
         return 0
     fi
 
-    ensure_gum
-
     local prompt="$1"
     local default="${2:-n}"
-    local default_flag="--default=false"
 
-    if [ "$default" = "y" ]; then
-        default_flag="--default=true"
+    # Try to use gum if available, otherwise fallback to read
+    if ensure_gum 2>/dev/null; then
+        local default_flag="--default=false"
+        if [ "$default" = "y" ]; then
+            default_flag="--default=true"
+        fi
+
+        gum_tty confirm $default_flag "$prompt"
+    else
+        # Fallback to plain read-based prompt
+        local answer
+        if [ "$default" = "y" ]; then
+            read -r -p "$prompt [Y/n] " answer
+            answer="${answer:-y}"
+        else
+            read -r -p "$prompt [y/N] " answer
+            answer="${answer:-n}"
+        fi
+        
+        case "${answer,,}" in
+            y|yes) return 0 ;;
+            *) return 1 ;;
+        esac
     fi
-
-    gum_tty confirm $default_flag "$prompt"
 }
 
 RUN_ALL_STEPS=true
@@ -231,16 +247,29 @@ select_hardening_steps() {
         return 0
     fi
 
-    ensure_gum
-
     print_header "Step Selection"
     print_info "You can run the full hardening wizard, or select specific steps."
     echo ""
 
     local mode
-    mode=$(gum_tty choose --header "Choose mode" \
-        "Run all steps (recommended)" \
-        "Select steps (advanced)") || mode="Run all steps (recommended)"
+    # Try to use gum if available, otherwise fallback to read
+    if ensure_gum 2>/dev/null; then
+        mode=$(gum_tty choose --header "Choose mode" \
+            "Run all steps (recommended)" \
+            "Select steps (advanced)") || mode="Run all steps (recommended)"
+    else
+        # Fallback to plain read-based prompt
+        echo "Choose mode:"
+        echo "  1) Run all steps (recommended)"
+        echo "  2) Select steps (advanced)"
+        read -r -p "Enter choice [1-2]: " mode_num
+        mode_num="${mode_num:-1}"
+        
+        case "$mode_num" in
+            2) mode="Select steps (advanced)" ;;
+            *) mode="Run all steps (recommended)" ;;
+        esac
+    fi
 
     if [ "$mode" = "Run all steps (recommended)" ]; then
         RUN_ALL_STEPS=true
@@ -272,21 +301,29 @@ select_hardening_steps() {
     )
 
     local selected=""
-    while [ -z "$selected" ]; do
-        selected=$(gum_tty choose --no-limit --header "Select steps (space to toggle, enter to confirm)" "${options[@]}") || selected=""
+    # With gum, use interactive selection; without it, select all steps
+    if command -v gum &>/dev/null; then
+        while [ -z "$selected" ]; do
+            selected=$(gum_tty choose --no-limit --header "Select steps (space to toggle, enter to confirm)" "${options[@]}") || selected=""
 
-        if [ -z "$selected" ]; then
-            print_warning "No steps selected."
-            if ! gum_tty confirm --default=true "Select again?"; then
-                RUN_ALL_STEPS=true
-                return 0
+            if [ -z "$selected" ]; then
+                print_warning "No steps selected."
+                if ! gum_tty confirm --default=true "Select again?"; then
+                    RUN_ALL_STEPS=true
+                    return 0
+                fi
             fi
-        fi
-    done
+        done
 
-    while IFS= read -r line; do
-        [ -n "$line" ] && RUN_STEPS["$line"]=true
-    done <<< "$selected"
+        while IFS= read -r line; do
+            [ -n "$line" ] && RUN_STEPS["$line"]=true
+        done <<< "$selected"
+    else
+        # Fallback: without gum, run all steps when advanced mode is selected
+        print_warning "gum unavailable; running all steps in advanced mode"
+        RUN_ALL_STEPS=true
+        return 0
+    fi
 }
 
 should_run_step() {

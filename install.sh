@@ -65,7 +65,7 @@ ensure_gum() {
     install -m 0755 "$gum_path" /usr/local/bin/gum
 }
 
-ensure_gum
+ensure_gum || echo "WARNING: gum unavailable; scripts will use basic prompts"
 
 echo "============================================"
 echo "  OpenClaw Pi - Security Hardening Installer"
